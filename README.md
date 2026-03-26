@@ -15,11 +15,6 @@
 
 ---
 
-## 🎥 Demo Preview
-
-(https://cinemind-ai-kk34.onrender.com/)
----
-
 ## ✨ Features
 
 ### 🎯 AI Features
