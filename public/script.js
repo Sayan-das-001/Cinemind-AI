@@ -6,53 +6,76 @@ const skeletonGrid = document.getElementById("skeletonGrid");
 const statusMessage = document.getElementById("statusMessage");
 const resultsGrid = document.getElementById("resultsGrid");
 const emptyState = document.getElementById("emptyState");
+const resultsEyebrow = document.getElementById("resultsEyebrow");
+const resultsHeading = document.getElementById("resultsHeading");
 const genreButtons = document.getElementById("genreButtons");
 const recentSearches = document.getElementById("recentSearches");
 const recentCount = document.getElementById("recentCount");
+const movieFavoritesCount = document.getElementById("movieFavoritesCount");
+const seriesFavoritesCount = document.getElementById("seriesFavoritesCount");
 const favoritesPanel = document.getElementById("favoritesPanel");
-const favoritesCount = document.getElementById("favoritesCount");
 const favoritesBadge = document.getElementById("favoritesBadge");
 const toggleFavoritesBtn = document.getElementById("toggleFavoritesBtn");
 const exportFavoritesBtn = document.getElementById("exportFavoritesBtn");
 const clearSearchBtn = document.getElementById("clearSearchBtn");
 const movieOfDayCard = document.getElementById("movieOfDayCard");
-const trendingGrid = document.getElementById("trendingGrid");
+const seriesOfDayCard = document.getElementById("seriesOfDayCard");
+const trendingMoviesGrid = document.getElementById("trendingMoviesGrid");
+const trendingSeriesGrid = document.getElementById("trendingSeriesGrid");
 const refreshDiscoveryBtn = document.getElementById("refreshDiscoveryBtn");
 const toastContainer = document.getElementById("toastContainer");
 
-const FAVORITES_KEY = "cinemind-favorites";
-const RECENT_KEY = "cinemind-recent-searches";
-const moodPresets = [
-  "cozy rainy evening",
-  "chaotic fun with friends",
-  "hopeful and inspired",
-  "nostalgic weekend",
-  "late-night thriller energy",
-  "heartbroken but healing",
-  "mind-bending sci-fi mood",
-  "feel-good family night",
-  "romantic city lights vibe",
-  "adrenaline-fueled action binge",
-];
-const genrePresets = [
-  "Sci-Fi",
-  "Thriller",
-  "Romance",
-  "Comedy",
-  "Animation",
-  "Action",
-  "Drama",
-  "Fantasy",
-];
+const MOVIE_MODE_BTN = document.getElementById("movieModeBtn");
+const SERIES_MODE_BTN = document.getElementById("seriesModeBtn");
+const FAVORITES_MOVIE_TAB = document.getElementById("favoritesMovieTab");
+const FAVORITES_SERIES_TAB = document.getElementById("favoritesSeriesTab");
+
+const FAVORITES_KEY = "cinemind-favorites-v2";
+const RECENT_KEY = "cinemind-recent-searches-v2";
+
+const moodPresets = {
+  movie: [
+    "cozy rainy evening",
+    "late-night thriller energy",
+    "feel-good family night",
+    "romantic city lights vibe",
+    "adrenaline-fueled action binge",
+    "thought-provoking sci-fi mood",
+  ],
+  series: [
+    "weekend binge mode",
+    "slow-burn mystery marathon",
+    "comfort show rewatch energy",
+    "dark prestige drama mood",
+    "light funny background vibe",
+    "edge-of-your-seat episodic suspense",
+  ],
+};
+
+const genrePresets = {
+  movie: ["Sci-Fi", "Thriller", "Romance", "Comedy", "Animation", "Action", "Drama", "Fantasy"],
+  series: ["Crime", "Mystery", "Sitcom", "Anime", "Fantasy", "Sci-Fi", "Drama", "Reality"],
+};
+
+const defaultFavorites = {
+  movie: [],
+  series: [],
+};
 
 const state = {
-  results: [],
-  favorites: loadStorage(FAVORITES_KEY, []),
-  recent: loadStorage(RECENT_KEY, []),
-  activeMovieKey: null,
+  mediaType: "movie",
+  favoritesView: "movie",
   favoritesVisible: true,
-  movieOfDay: null,
-  trending: [],
+  results: [],
+  recent: loadStorage(RECENT_KEY, []),
+  favorites: normalizeFavorites(loadStorage(FAVORITES_KEY, defaultFavorites)),
+  activeItemKey: null,
+  discovery: {
+    movieOfDay: null,
+    seriesOfDay: null,
+    trendingMovies: [],
+    trendingSeries: [],
+  },
 };
 
 function loadStorage(key, fallback) {
@@ -68,16 +91,20 @@ function saveStorage(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function normalizeFavorites(value) {
+  const safe = value && typeof value === "object" ? value : {};
+  return {
+    movie: Array.isArray(safe.movie) ? safe.movie : [],
+    series: Array.isArray(safe.series) ? safe.series : [],
+  };
+}
+
 function safeParseJson(text) {
   try {
     return JSON.parse(text);
   } catch (error) {
     return null;
   }
-}
-
-function getMovieKey(movie) {
-  return `${movie.title || "unknown"}::${movie.year || ""}`.toLowerCase();
 }
 
 function escapeHtml(value) {
@@ -89,9 +116,35 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function getMediaType(item) {
+  return item?.mediaType === "series" ? "series" : "movie";
+}
+
+function getItemKey(item) {
+  const mediaType = getMediaType(item);
+  const suffix = mediaType === "series" ? item.seasons || item.status || "" : item.year || "";
+  return `${mediaType}::${item.title || "unknown"}::${suffix}`.toLowerCase();
+}
+
+function getFavoritesBucket(mediaType) {
+  return state.favorites[mediaType];
+}
+
+function isFavorite(item) {
+  const mediaType = getMediaType(item);
+  return getFavoritesBucket(mediaType).some((entry) => getItemKey(entry) === getItemKey(item));
+}
+
 function setStatus(message, isError = false) {
   statusMessage.textContent = message;
   statusMessage.className = `mt-4 min-h-6 text-sm ${isError ? "text-rose-300" : "text-slate-300"}`;
+}
+
+function updateResultsHeader() {
+  const label = state.mediaType === "series" ? "Series" : "Movie";
+  resultsEyebrow.textContent = `${label} Results`;
+  resultsHeading.textContent = state.mediaType === "series" ? "Your next binge starts here" : "Your tailored watchlist";
+  findMovieBtn.textContent = state.mediaType === "series" ? "Find Series" : "Find Picks";
 }
 
 function setLoading(isLoading) {
@@ -99,6 +152,8 @@ function setLoading(isLoading) {
   findMovieBtn.disabled = isLoading;
   surpriseBtn.disabled = isLoading;
   moodInput.disabled = isLoading;
+  MOVIE_MODE_BTN.disabled = isLoading;
+  SERIES_MODE_BTN.disabled = isLoading;
 
   if (isLoading) {
     skeletonGrid.innerHTML = Array.from({ length: 4 }, () => createSkeletonCard()).join("");
@@ -143,13 +198,13 @@ function showToast(message, type = "info") {
   }, 2800);
 }
 
-function updateRecentSearches(mood) {
-  const normalized = mood.trim();
+function updateRecentSearches(entry) {
+  const normalized = entry.trim();
   if (!normalized) {
     return;
   }
 
-  state.recent = [normalized, ...state.recent.filter((entry) => entry.toLowerCase() !== normalized.toLowerCase())].slice(0, 5);
+  state.recent = [normalized, ...state.recent.filter((item) => item.toLowerCase() !== normalized.toLowerCase())].slice(0, 5);
   saveStorage(RECENT_KEY, state.recent);
   renderRecentSearches();
 }
@@ -158,68 +213,72 @@ function renderRecentSearches() {
   recentCount.textContent = String(state.recent.length);
   recentSearches.innerHTML = state.recent.length
     ? state.recent
-        .map(
-          (entry) => `
-            <button class="chip-button" data-recent-search="${escapeHtml(entry)}">${escapeHtml(entry)}</button>
-          `
-        )
+        .map((entry) => {
+          const [mediaType, mood] = entry.includes("::") ? entry.split("::") : [state.mediaType, entry];
+          return `<button class="chip-button" data-recent-search="${escapeHtml(entry)}">${escapeHtml(
+            `${mediaType === "series" ? "Series" : "Movies"}: ${mood}`
+          )}</button>`;
+        })
         .join("")
     : '<span class="text-sm text-slate-500">No recent moods yet.</span>';
 }
 
-function isFavorite(movie) {
-  return state.favorites.some((entry) => getMovieKey(entry) === getMovieKey(movie));
-}
-
-function toggleFavorite(movie) {
-  const exists = isFavorite(movie);
+function toggleFavorite(item) {
+  const mediaType = getMediaType(item);
+  const bucket = getFavoritesBucket(mediaType);
+  const exists = bucket.some((entry) => getItemKey(entry) === getItemKey(item));
 
   if (exists) {
-    state.favorites = state.favorites.filter((entry) => getMovieKey(entry) !== getMovieKey(movie));
-    showToast(`Removed ${movie.title} from My List.`, "info");
+    state.favorites[mediaType] = bucket.filter((entry) => getItemKey(entry) !== getItemKey(item));
+    showToast(`Removed ${item.title} from ${mediaType === "series" ? "favorite series" : "favorite movies"}.`, "info");
   } else {
-    state.favorites = [movie, ...state.favorites];
-    showToast(`Added ${movie.title} to My List.`, "success");
+    state.favorites[mediaType] = [item, ...bucket];
+    showToast(`Added ${item.title} to ${mediaType === "series" ? "favorite series" : "favorite movies"}.`, "success");
   }
 
   saveStorage(FAVORITES_KEY, state.favorites);
   renderFavorites();
   renderResults();
-  if (state.movieOfDay && getMovieKey(state.movieOfDay) === getMovieKey(movie)) {
-    renderMovieOfDay(state.movieOfDay);
-  }
+  renderDiscoveryCards();
 }
 
 function renderFavorites() {
-  favoritesCount.textContent = String(state.favorites.length);
-  favoritesBadge.textContent = String(state.favorites.length);
+  movieFavoritesCount.textContent = String(state.favorites.movie.length);
+  seriesFavoritesCount.textContent = String(state.favorites.series.length);
+  favoritesBadge.textContent = String(state.favorites.movie.length + state.favorites.series.length);
   favoritesPanel.classList.toggle("hidden", !state.favoritesVisible);
 
-  favoritesPanel.innerHTML = state.favorites.length
-    ? state.favorites
-        .map((movie) => {
-          const movieKey = getMovieKey(movie);
-
-          return `
+  const favorites = getFavoritesBucket(state.favoritesView);
+  favoritesPanel.innerHTML = favorites.length
+    ? favorites
+        .map(
+          (item) => `
             <article class="rounded-[1.4rem] border border-white/10 bg-white/5 p-4">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <p class="text-xs uppercase tracking-[0.24em] text-orange-200">${escapeHtml(movie.year || "Year N/A")}</p>
-                  <h3 class="mt-2 text-lg font-semibold text-white">${escapeHtml(movie.title)}</h3>
+                  <p class="text-xs uppercase tracking-[0.24em] ${getMediaType(item) === "series" ? "text-emerald-200" : "text-orange-200"}">${escapeHtml(
+                    getMediaType(item) === "series" ? item.status || "Series" : item.year || "Movie"
+                  )}</p>
+                  <h3 class="mt-2 text-lg font-semibold text-white">${escapeHtml(item.title)}</h3>
                 </div>
-                <button class="icon-action" data-remove-favorite="${movieKey}">Remove</button>
+                <button class="icon-action" data-remove-favorite="${getItemKey(item)}">Remove</button>
               </div>
-              <p class="mt-3 text-sm text-slate-300">${escapeHtml(movie.reason || movie.desc || "Saved for later.")}</p>
+              <p class="mt-3 text-sm text-slate-300">${escapeHtml(item.reason || item.desc || "Saved for later.")}</p>
             </article>
-          `;
-        })
+          `
+        )
         .join("")
-    : '<div class="rounded-[1.4rem] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">Save movies you love and they will show up here.</div>';
+    : `<div class="rounded-[1.4rem] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">Save ${
+        state.favoritesView === "series" ? "web series" : "movies"
+      } and they will appear here.</div>`;
+
+  FAVORITES_MOVIE_TAB.classList.toggle("favorites-tab-active", state.favoritesView === "movie");
+  FAVORITES_SERIES_TAB.classList.toggle("favorites-tab-active", state.favoritesView === "series");
 }
 
 function exportFavorites() {
-  if (!state.favorites.length) {
-    showToast("Add a few movies before exporting your favorites.", "error");
+  if (!state.favorites.movie.length && !state.favorites.series.length) {
+    showToast("Add a few favorites before exporting your list.", "error");
     return;
   }
 
@@ -233,53 +292,91 @@ function exportFavorites() {
   showToast("Favorites exported as JSON.", "success");
 }
 
-function createMovieCard(movie, options = {}) {
-  const movieKey = getMovieKey(movie);
-  const favoriteLabel = isFavorite(movie) ? "Saved" : "Add to Favorites";
-  const castText = Array.isArray(movie.cast) && movie.cast.length ? movie.cast.join(", ") : "Not available";
-  const compact = options.compact ? "compact-card" : "";
+function buildMetaLine(item) {
+  if (getMediaType(item) === "series") {
+    return `${item.seasons || "Seasons N/A"} | ${item.episodes || "Episodes N/A"} | ${item.rating || "Rating N/A"}`;
+  }
 
-  return `
-    <article class="movie-card ${compact} rounded-[1.6rem] border border-white/10 bg-slate-950/35 p-5" data-movie-key="${movieKey}">
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <p class="text-xs uppercase tracking-[0.28em] text-orange-200">${escapeHtml(movie.year || "Year N/A")} | ${escapeHtml(movie.rating || "Rating N/A")}</p>
-          <h3 class="mt-3 text-2xl font-semibold text-white">${escapeHtml(movie.title || "Unknown title")}</h3>
-        </div>
-        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">${escapeHtml(movie.runtime || "Runtime N/A")}</span>
-      </div>
+  return `${item.year || "Year N/A"} | ${item.rating || "Rating N/A"}`;
+}
 
-      <p class="mt-4 text-sm leading-7 text-slate-200">${escapeHtml(movie.desc || "No description available.")}</p>
-      <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <p class="text-xs uppercase tracking-[0.22em] text-sky-200">Why it fits</p>
-        <p class="mt-2 text-sm text-slate-200">${escapeHtml(movie.reason || "A strong fit for this vibe.")}</p>
-      </div>
-
+function buildSupportPanels(item) {
+  if (getMediaType(item) === "series") {
+    return `
       <div class="mt-4 grid gap-3 sm:grid-cols-2">
         <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Director</p>
-          <p class="mt-2 text-sm text-white">${escapeHtml(movie.director || "Not available")}</p>
+          <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Cast</p>
+          <p class="mt-2 text-sm text-white">${escapeHtml(item.cast?.join(", ") || "Not available")}</p>
         </div>
         <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Cast</p>
-          <p class="mt-2 text-sm text-white">${escapeHtml(castText)}</p>
+          <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Status</p>
+          <p class="mt-2 text-sm text-white">${escapeHtml(item.status || "Not available")}</p>
         </div>
       </div>
-
       <div class="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
         <div>
-          <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Streaming</p>
-          <p class="mt-2 text-sm text-white">${escapeHtml(movie.streaming || "Not available")}</p>
+          <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Platform</p>
+          <p class="mt-2 text-sm text-white">${escapeHtml(item.platform || "Not available")}</p>
         </div>
-        <button class="icon-action ${isFavorite(movie) ? "icon-action-active" : ""}" data-toggle-favorite="${movieKey}">
-          ${favoriteLabel}
+        <button class="icon-action ${isFavorite(item) ? "icon-action-active" : ""}" data-toggle-favorite="${getItemKey(item)}">
+          ${isFavorite(item) ? "Saved" : "Add to Favorites"}
         </button>
       </div>
+    `;
+  }
+
+  return `
+    <div class="mt-4 grid gap-3 sm:grid-cols-2">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Director</p>
+        <p class="mt-2 text-sm text-white">${escapeHtml(item.director || "Not available")}</p>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Cast</p>
+        <p class="mt-2 text-sm text-white">${escapeHtml(item.cast?.join(", ") || "Not available")}</p>
+      </div>
+    </div>
+    <div class="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div>
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Streaming</p>
+        <p class="mt-2 text-sm text-white">${escapeHtml(item.streaming || "Not available")}</p>
+      </div>
+      <button class="icon-action ${isFavorite(item) ? "icon-action-active" : ""}" data-toggle-favorite="${getItemKey(item)}">
+        ${isFavorite(item) ? "Saved" : "Add to Favorites"}
+      </button>
+    </div>
+  `;
+}
+
+function createMediaCard(item, options = {}) {
+  const compact = options.compact ? "compact-card" : "";
+  const tone = getMediaType(item) === "series" ? "text-emerald-200" : "text-orange-200";
+  const moreLikeLabel = getMediaType(item) === "series" ? "More Like This" : "More Like This";
+
+  return `
+    <article class="movie-card ${compact} rounded-[1.6rem] border border-white/10 bg-slate-950/35 p-5" data-item-key="${getItemKey(item)}">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.28em] ${tone}">${escapeHtml(buildMetaLine(item))}</p>
+          <h3 class="mt-3 text-2xl font-semibold text-white">${escapeHtml(item.title || "Unknown title")}</h3>
+        </div>
+        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">${escapeHtml(
+          getMediaType(item) === "series" ? item.platform || "Platform N/A" : item.runtime || "Runtime N/A"
+        )}</span>
+      </div>
+
+      <p class="mt-4 text-sm leading-7 text-slate-200">${escapeHtml(item.desc || "No description available.")}</p>
+      <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+        <p class="text-xs uppercase tracking-[0.22em] ${getMediaType(item) === "series" ? "text-emerald-200" : "text-sky-200"}">Why it fits</p>
+        <p class="mt-2 text-sm text-slate-200">${escapeHtml(item.reason || "A strong fit for this vibe.")}</p>
+      </div>
+
+      ${buildSupportPanels(item)}
 
       <div class="mt-4 grid gap-2 sm:grid-cols-3">
-        <button class="action-button" data-more-like-this="${escapeHtml(movie.title)}">More Like This</button>
-        <button class="action-button" data-watch-trailer="${escapeHtml(movie.title)}">Watch Trailer</button>
-        <button class="action-button" data-make-active="${movieKey}">Focus Card</button>
+        <button class="action-button" data-more-like-this="${escapeHtml(item.title)}" data-more-like-type="${getMediaType(item)}">${moreLikeLabel}</button>
+        <button class="action-button" data-watch-trailer="${escapeHtml(item.title)}">Watch Trailer</button>
+        <button class="action-button" data-make-active="${getItemKey(item)}">Focus Card</button>
       </div>
     </article>
   `;
@@ -295,63 +392,80 @@ function renderResults() {
 
   emptyState.classList.add("hidden");
   resultsGrid.classList.remove("hidden");
-  resultsGrid.innerHTML = state.results.map((movie) => createMovieCard(movie)).join("");
+  resultsGrid.innerHTML = state.results.map((item) => createMediaCard(item)).join("");
 }
 
-function renderMovieOfDay(movie) {
-  state.movieOfDay = movie?.title ? movie : null;
+function renderDiscoveryCards() {
+  movieOfDayCard.innerHTML = state.discovery.movieOfDay?.title
+    ? createMediaCard(state.discovery.movieOfDay, { compact: true })
+    : '<div class="rounded-[1.4rem] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">Movie of the Day is unavailable right now.</div>';
 
-  if (!movie?.title) {
-    movieOfDayCard.innerHTML = '<div class="rounded-[1.4rem] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">Movie of the Day is taking a coffee break. Refresh to try again.</div>';
-    return;
-  }
+  seriesOfDayCard.innerHTML = state.discovery.seriesOfDay?.title
+    ? createMediaCard(state.discovery.seriesOfDay, { compact: true })
+    : '<div class="rounded-[1.4rem] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">Series of the Day is unavailable right now.</div>';
 
-  movieOfDayCard.innerHTML = createMovieCard(movie, { compact: true });
+  trendingMoviesGrid.innerHTML = renderTrendingList(state.discovery.trendingMovies, "movie");
+  trendingSeriesGrid.innerHTML = renderTrendingList(state.discovery.trendingSeries, "series");
 }
 
-function renderTrending(movies) {
-  state.trending = Array.isArray(movies) ? movies : [];
-  trendingGrid.innerHTML = Array.isArray(movies) && movies.length
-    ? movies
+function renderTrendingList(items, mediaType) {
+  return Array.isArray(items) && items.length
+    ? items
         .map(
-          (movie) => `
-            <button class="trend-item text-left" data-trending-title="${escapeHtml(movie.title)}">
+          (item) => `
+            <button class="trend-item text-left" data-trending-title="${escapeHtml(item.title)}" data-trending-type="${mediaType}">
               <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-emerald-200">${escapeHtml(movie.year || "Year N/A")}</p>
-                <h3 class="mt-2 text-lg font-semibold text-white">${escapeHtml(movie.title)}</h3>
+                <p class="text-xs uppercase tracking-[0.24em] ${mediaType === "series" ? "text-emerald-200" : "text-orange-200"}">${escapeHtml(
+                  mediaType === "series" ? item.status || "Series" : item.year || "Movie"
+                )}</p>
+                <h3 class="mt-2 text-lg font-semibold text-white">${escapeHtml(item.title)}</h3>
               </div>
-              <p class="mt-2 text-sm text-slate-300">${escapeHtml(movie.reason || movie.desc || "Popular for the moment.")}</p>
+              <p class="mt-2 text-sm text-slate-300">${escapeHtml(item.reason || item.desc || "Popular for the moment.")}</p>
             </button>
           `
         )
         .join("")
-    : '<div class="rounded-[1.4rem] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">Trending titles will appear here once discovery loads.</div>';
+    : `<div class="rounded-[1.4rem] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">Trending ${
+        mediaType === "series" ? "series" : "movies"
+      } will appear here once discovery loads.</div>`;
 }
 
-async function fetchJson(url, payload) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload || {}),
-  });
+async function fetchJson(url, payload, retryCount = 1) {
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload || {}),
+    });
 
-  const rawText = await response.text();
-  const data = safeParseJson(rawText);
+    const rawText = await response.text();
+    const data = safeParseJson(rawText);
 
-  if (!data) {
-    throw new Error("The server returned an unreadable response.");
+    if (!data) {
+      throw new Error("The server returned an unreadable response.");
+    }
+
+    if (!response.ok) {
+      throw new Error(data.error || "Something went wrong.");
+    }
+
+    return data;
+  } catch (error) {
+    if (retryCount > 0) {
+      return fetchJson(url, payload, retryCount - 1);
+    }
+
+    throw error;
   }
-
-  if (!response.ok) {
-    throw new Error(data.error || "Something went wrong.");
-  }
-
-  return data;
 }
 
-async function requestRecommendations({ mood, mode = "mood", title = "" }) {
+function getPromptDescriptor(mediaType) {
+  return mediaType === "series" ? "series" : "movies";
+}
+
+async function requestRecommendations({ mood, mode = "mood", title = "", mediaType = state.mediaType }) {
   const query = (mode === "similar" ? title : mood).trim();
 
   if (!query) {
@@ -361,28 +475,40 @@ async function requestRecommendations({ mood, mode = "mood", title = "" }) {
     return;
   }
 
+  state.mediaType = mediaType;
+  syncModeTabs();
+  updateResultsHeader();
   setLoading(true);
-  setStatus(mode === "similar" ? `Finding movies like ${title}...` : "CineMind AI is building your watchlist...");
+  setStatus(
+    mode === "similar"
+      ? `Finding ${getPromptDescriptor(mediaType)} like ${title}...`
+      : `CineMind AI is building your ${mediaType === "series" ? "binge list" : "watchlist"}...`
+  );
 
   try {
-    const movies = await fetchJson("/api/movie", {
+    const items = await fetchJson("/api/movie", {
       mood,
       mode,
       title,
       count: 4,
+      mediaType,
     });
 
-    state.results = Array.isArray(movies) ? movies : [];
-    state.activeMovieKey = state.results[0] ? getMovieKey(state.results[0]) : null;
+    state.results = Array.isArray(items) ? items : [];
+    state.activeItemKey = state.results[0] ? getItemKey(state.results[0]) : null;
 
     if (mode !== "similar") {
-      updateRecentSearches(mood);
+      updateRecentSearches(`${mediaType}::${mood}`);
     }
 
     renderResults();
     renderFavorites();
-    setStatus(mode === "similar" ? `Because you liked ${title}.` : `Found ${state.results.length} movies for "${mood}".`);
-    showToast(mode === "similar" ? `More movies like ${title}.` : "Fresh recommendations are ready.", "success");
+    setStatus(
+      mode === "similar"
+        ? `Because you liked ${title}.`
+        : `Found ${state.results.length} ${mediaType === "series" ? "series" : "movies"} for "${mood}".`
+    );
+    showToast("Fresh recommendations are ready.", "success");
   } catch (error) {
     state.results = [];
     renderResults();
@@ -395,21 +521,30 @@ async function requestRecommendations({ mood, mode = "mood", title = "" }) {
 
 async function loadDiscovery() {
   movieOfDayCard.innerHTML = createSkeletonCard();
-  trendingGrid.innerHTML = Array.from({ length: 3 }, () => '<div class="skeleton-line h-28 rounded-[1.4rem]"></div>').join("");
+  seriesOfDayCard.innerHTML = createSkeletonCard();
+  trendingMoviesGrid.innerHTML = Array.from({ length: 2 }, () => '<div class="skeleton-line h-28 rounded-[1.4rem]"></div>').join("");
+  trendingSeriesGrid.innerHTML = Array.from({ length: 2 }, () => '<div class="skeleton-line h-28 rounded-[1.4rem]"></div>').join("");
 
   try {
-    const data = await fetchJson("/api/discovery", {});
-    renderMovieOfDay(data.movieOfDay);
-    renderTrending(data.trending);
+    const data = await fetchJson("/api/discovery", {}, 1);
+    state.discovery.movieOfDay = data.movieOfDay || null;
+    state.discovery.seriesOfDay = data.seriesOfDay || null;
+    state.discovery.trendingMovies = Array.isArray(data.trendingMovies) ? data.trendingMovies : [];
+    state.discovery.trendingSeries = Array.isArray(data.trendingSeries) ? data.trendingSeries : [];
+    renderDiscoveryCards();
   } catch (error) {
-    renderMovieOfDay(null);
-    renderTrending([]);
+    state.discovery.movieOfDay = null;
+    state.discovery.seriesOfDay = null;
+    state.discovery.trendingMovies = [];
+    state.discovery.trendingSeries = [];
+    renderDiscoveryCards();
     showToast(error.message || "Unable to load discovery features right now.", "error");
   }
 }
 
-function chooseRandomMood() {
-  const nextMood = moodPresets[Math.floor(Math.random() * moodPresets.length)];
+function chooseRandomMood(mediaType = state.mediaType) {
+  const presets = moodPresets[mediaType];
+  const nextMood = presets[Math.floor(Math.random() * presets.length)];
   moodInput.value = nextMood;
   return nextMood;
 }
@@ -417,31 +552,27 @@ function chooseRandomMood() {
 function resetView() {
   moodInput.value = "";
   state.results = [];
-  state.activeMovieKey = null;
+  state.activeItemKey = null;
   renderResults();
-  setStatus("View reset. Try another mood, recent search, or genre chip.");
+  setStatus("View reset. Try another mood, recent search, or a trending pick.");
 }
 
 function buildGenreButtons() {
-  genreButtons.innerHTML = genrePresets
-    .map(
-      (genre) => `
-        <button class="chip-button" data-genre="${escapeHtml(genre)}">${escapeHtml(genre)}</button>
-      `
-    )
+  genreButtons.innerHTML = genrePresets[state.mediaType]
+    .map((genre) => `<button class="chip-button" data-genre="${escapeHtml(genre)}">${escapeHtml(genre)}</button>`)
     .join("");
 }
 
 function toggleActiveFavorite() {
-  const fallbackMovie = state.results[0];
-  const activeMovie = state.results.find((movie) => getMovieKey(movie) === state.activeMovieKey) || fallbackMovie;
+  const fallbackItem = state.results[0];
+  const activeItem = state.results.find((item) => getItemKey(item) === state.activeItemKey) || fallbackItem;
 
-  if (!activeMovie) {
-    showToast("Search for a movie set first, then press F.", "error");
+  if (!activeItem) {
+    showToast(`Search for ${state.mediaType === "series" ? "series" : "movies"} first, then press F.`, "error");
     return;
   }
 
-  toggleFavorite(activeMovie);
+  toggleFavorite(activeItem);
 }
 
 function openTrailer(title) {
@@ -449,15 +580,56 @@ function openTrailer(title) {
   window.open(`https://www.youtube.com/results?search_query=${query}`, "_blank", "noopener");
 }
 
+function syncModeTabs() {
+  MOVIE_MODE_BTN.classList.toggle("mode-tab-active", state.mediaType === "movie");
+  SERIES_MODE_BTN.classList.toggle("mode-tab-active", state.mediaType === "series");
+  buildGenreButtons();
+}
+
+function getDiscoveryItemByKey(itemKey) {
+  const allDiscoveryItems = [
+    state.discovery.movieOfDay,
+    state.discovery.seriesOfDay,
+    ...state.discovery.trendingMovies,
+    ...state.discovery.trendingSeries,
+  ].filter(Boolean);
+
+  return allDiscoveryItems.find((item) => getItemKey(item) === itemKey) || null;
+}
+
 function bindGlobalEvents() {
   findMovieBtn.addEventListener("click", () => {
-    requestRecommendations({ mood: moodInput.value.trim() });
+    requestRecommendations({ mood: moodInput.value.trim(), mediaType: state.mediaType });
   });
 
   surpriseBtn.addEventListener("click", () => {
-    const mood = chooseRandomMood();
-    showToast(`Surprise mood: ${mood}`, "info");
-    requestRecommendations({ mood });
+    const mood = chooseRandomMood(state.mediaType);
+    showToast(`Surprise ${state.mediaType === "series" ? "series" : "movie"} mood: ${mood}`, "info");
+    requestRecommendations({ mood, mediaType: state.mediaType });
+  });
+
+  MOVIE_MODE_BTN.addEventListener("click", () => {
+    state.mediaType = "movie";
+    syncModeTabs();
+    updateResultsHeader();
+    setStatus("Movie mode enabled. Search by mood or hit Surprise Me.");
+  });
+
+  SERIES_MODE_BTN.addEventListener("click", () => {
+    state.mediaType = "series";
+    syncModeTabs();
+    updateResultsHeader();
+    setStatus("Web Series mode enabled. Search by mood or hit Surprise Me.");
+  });
+
+  FAVORITES_MOVIE_TAB.addEventListener("click", () => {
+    state.favoritesView = "movie";
+    renderFavorites();
+  });
+
+  FAVORITES_SERIES_TAB.addEventListener("click", () => {
+    state.favoritesView = "series";
+    renderFavorites();
   });
 
   toggleFavoritesBtn.addEventListener("click", () => {
@@ -471,43 +643,49 @@ function bindGlobalEvents() {
 
   moodInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
-      requestRecommendations({ mood: moodInput.value.trim() });
+      requestRecommendations({ mood: moodInput.value.trim(), mediaType: state.mediaType });
     }
   });
 
   document.addEventListener("click", (event) => {
     const recentButton = event.target.closest("[data-recent-search]");
     if (recentButton) {
-      const mood = recentButton.dataset.recentSearch;
+      const [mediaType, mood] = recentButton.dataset.recentSearch.split("::");
+      state.mediaType = mediaType === "series" ? "series" : "movie";
+      syncModeTabs();
+      updateResultsHeader();
       moodInput.value = mood;
-      requestRecommendations({ mood });
+      requestRecommendations({ mood, mediaType: state.mediaType });
       return;
     }
 
     const genreButton = event.target.closest("[data-genre]");
     if (genreButton) {
-      const mood = `${genreButton.dataset.genre.toLowerCase()} movie night`;
+      const mood = `${genreButton.dataset.genre.toLowerCase()} ${state.mediaType === "series" ? "series binge" : "movie night"}`;
       moodInput.value = mood;
-      requestRecommendations({ mood });
+      requestRecommendations({ mood, mediaType: state.mediaType });
       return;
     }
 
     const favoriteButton = event.target.closest("[data-toggle-favorite]");
     if (favoriteButton) {
-      const movie =
-        state.results.find((entry) => getMovieKey(entry) === favoriteButton.dataset.toggleFavorite) ||
-        (state.movieOfDay && getMovieKey(state.movieOfDay) === favoriteButton.dataset.toggleFavorite ? state.movieOfDay : null);
-      if (movie) {
-        toggleFavorite(movie);
+      const itemKey = favoriteButton.dataset.toggleFavorite;
+      const item =
+        state.results.find((entry) => getItemKey(entry) === itemKey) ||
+        getDiscoveryItemByKey(itemKey);
+      if (item) {
+        toggleFavorite(item);
       }
       return;
     }
 
     const removeFavoriteButton = event.target.closest("[data-remove-favorite]");
     if (removeFavoriteButton) {
-      const movie = state.favorites.find((entry) => getMovieKey(entry) === removeFavoriteButton.dataset.removeFavorite);
-      if (movie) {
-        toggleFavorite(movie);
+      const item =
+        state.favorites.movie.find((entry) => getItemKey(entry) === removeFavoriteButton.dataset.removeFavorite) ||
+        state.favorites.series.find((entry) => getItemKey(entry) === removeFavoriteButton.dataset.removeFavorite);
+      if (item) {
+        toggleFavorite(item);
       }
       return;
     }
@@ -515,8 +693,17 @@ function bindGlobalEvents() {
     const moreLikeThisButton = event.target.closest("[data-more-like-this]");
     if (moreLikeThisButton) {
       const title = moreLikeThisButton.dataset.moreLikeThis;
-      moodInput.value = `Movies like ${title}`;
-      requestRecommendations({ mode: "similar", title, mood: `Movies like ${title}` });
+      const mediaType = moreLikeThisButton.dataset.moreLikeType === "series" ? "series" : "movie";
+      state.mediaType = mediaType;
+      syncModeTabs();
+      updateResultsHeader();
+      moodInput.value = `${mediaType === "series" ? "Series" : "Movies"} like ${title}`;
+      requestRecommendations({
+        mode: "similar",
+        title,
+        mediaType,
+        mood: `${mediaType === "series" ? "Series" : "Movies"} like ${title}`,
+      });
       return;
     }
 
@@ -528,16 +715,25 @@ function bindGlobalEvents() {
 
     const activeButton = event.target.closest("[data-make-active]");
     if (activeButton) {
-      state.activeMovieKey = activeButton.dataset.makeActive;
-      showToast("Active movie updated for keyboard favorite toggle.", "info");
+      state.activeItemKey = activeButton.dataset.makeActive;
+      showToast("Active card updated for keyboard favorite toggle.", "info");
       return;
     }
 
     const trendButton = event.target.closest("[data-trending-title]");
     if (trendButton) {
       const title = trendButton.dataset.trendingTitle;
-      moodInput.value = `Movies like ${title}`;
-      requestRecommendations({ mode: "similar", title, mood: `Movies like ${title}` });
+      const mediaType = trendButton.dataset.trendingType === "series" ? "series" : "movie";
+      state.mediaType = mediaType;
+      syncModeTabs();
+      updateResultsHeader();
+      moodInput.value = `${mediaType === "series" ? "Series" : "Movies"} like ${title}`;
+      requestRecommendations({
+        mode: "similar",
+        title,
+        mediaType,
+        mood: `${mediaType === "series" ? "Series" : "Movies"} like ${title}`,
+      });
     }
   });
 
@@ -561,8 +757,8 @@ function bindGlobalEvents() {
     }
 
     if (event.key.toLowerCase() === "r") {
-      const mood = chooseRandomMood();
-      requestRecommendations({ mood });
+      const mood = chooseRandomMood(state.mediaType);
+      requestRecommendations({ mood, mediaType: state.mediaType });
       return;
     }
 
@@ -573,13 +769,15 @@ function bindGlobalEvents() {
 }
 
 function init() {
-  buildGenreButtons();
+  syncModeTabs();
+  updateResultsHeader();
   renderRecentSearches();
   renderFavorites();
   renderResults();
+  renderDiscoveryCards();
   loadDiscovery();
   bindGlobalEvents();
-  setStatus("Pick a mood, use Surprise Me, or browse discovery.");
+  setStatus("Pick Movies or Web Series, then search by mood, genre, or Surprise Me.");
 }
 
 init();

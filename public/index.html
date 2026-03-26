@@ -14,6 +14,7 @@
               slateglass: "#101c2d",
               accent: "#f97316",
               accentSoft: "#fb923c",
+              ocean: "#38bdf8",
             },
             boxShadow: {
               glow: "0 20px 60px rgba(249, 115, 22, 0.18)",
@@ -39,21 +40,26 @@
 
       <section class="mx-auto max-w-7xl space-y-6">
         <header class="glass-panel rounded-[2rem] border border-white/10 p-6 shadow-glow backdrop-blur-xl md:p-8">
-          <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div class="max-w-3xl">
               <p class="mb-4 inline-flex rounded-full border border-orange-400/30 bg-orange-500/10 px-4 py-1 text-sm font-medium text-orange-200">
-                Premium AI Movie Discovery
+                Dual-Mode AI Entertainment Platform
               </p>
               <h1 class="text-4xl font-bold tracking-tight md:text-6xl">CineMind AI</h1>
               <p class="mt-4 max-w-2xl text-sm text-slate-300 md:text-base">
-                Mood-driven recommendations, discovery shelves, favorites, and instant sequel vibes in one polished space.
+                Switch between movies and web series, save favorites, discover what to watch next, and let AI build
+                your perfect watchlist.
               </p>
             </div>
 
-            <div class="grid gap-3 sm:grid-cols-3">
+            <div class="grid gap-3 sm:grid-cols-4">
               <div class="metric-card">
-                <p class="metric-label">Favorites</p>
-                <p id="favoritesCount" class="metric-value">0</p>
+                <p class="metric-label">Movies Saved</p>
+                <p id="movieFavoritesCount" class="metric-value">0</p>
+              </div>
+              <div class="metric-card">
+                <p class="metric-label">Series Saved</p>
+                <p id="seriesFavoritesCount" class="metric-value">0</p>
               </div>
               <div class="metric-card">
                 <p class="metric-label">Recent Moods</p>
@@ -66,21 +72,28 @@
             </div>
           </div>
 
-          <div class="mt-8 grid gap-6 xl:grid-cols-[1.5fr_0.9fr]">
+          <div class="mt-8 grid gap-6 xl:grid-cols-[1.5fr_0.92fr]">
             <div class="rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
-              <label for="moodInput" class="block text-sm font-medium text-slate-200">How are you feeling today?</label>
+              <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <label for="moodInput" class="block text-sm font-medium text-slate-200">What are you in the mood for?</label>
+                <div class="inline-flex rounded-full border border-white/10 bg-white/5 p-1">
+                  <button id="movieModeBtn" class="mode-tab mode-tab-active" data-mode-tab="movie">Movies</button>
+                  <button id="seriesModeBtn" class="mode-tab" data-mode-tab="series">Web Series</button>
+                </div>
+              </div>
+
               <div class="mt-4 flex flex-col gap-3 lg:flex-row">
                 <input
                   id="moodInput"
                   type="text"
-                  placeholder="Try cozy, chaotic, nostalgic, hopeful, or movie night with friends..."
+                  placeholder="Try cozy, chaotic, late-night thriller, feel-good binge, or thought-provoking sci-fi..."
                   class="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white placeholder:text-slate-400 focus:border-orange-400/60 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                 />
                 <button
                   id="findMovieBtn"
                   class="inline-flex items-center justify-center rounded-2xl bg-accent px-6 py-4 font-semibold text-white transition hover:-translate-y-0.5 hover:bg-accentSoft disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Find Movies
+                  Find Picks
                 </button>
                 <button
                   id="surpriseBtn"
@@ -92,6 +105,7 @@
 
               <div class="mt-4 flex flex-wrap gap-2" id="genreButtons"></div>
               <div id="statusMessage" class="mt-4 min-h-6 text-sm text-slate-300" aria-live="polite"></div>
+
               <div class="mt-4 flex flex-wrap gap-2 text-xs text-slate-400">
                 <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1">/ focus</span>
                 <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1">R random mood</span>
@@ -101,29 +115,36 @@
             </div>
 
             <aside class="rounded-[1.75rem] border border-white/10 bg-slate-950/30 p-5">
-              <div class="flex items-center justify-between">
-                <h2 class="text-lg font-semibold">My List</h2>
-                <div class="flex items-center gap-2">
-                  <span
-                    id="favoritesBadge"
-                    class="inline-flex min-w-8 items-center justify-center rounded-full bg-orange-500/20 px-2 py-1 text-xs font-semibold text-orange-100"
-                  >
-                    0
-                  </span>
-                  <button
-                    id="toggleFavoritesBtn"
-                    class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-200 transition hover:bg-white/10"
-                  >
-                    Toggle
-                  </button>
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <h2 class="text-lg font-semibold">My List</h2>
+                  <p class="mt-1 text-sm text-slate-400">Separate saved movies and series.</p>
                 </div>
+                <span
+                  id="favoritesBadge"
+                  class="inline-flex min-w-8 items-center justify-center rounded-full bg-orange-500/20 px-2 py-1 text-xs font-semibold text-orange-100"
+                >
+                  0
+                </span>
               </div>
-              <div class="mt-4 flex gap-2">
+
+              <div class="mt-4 inline-flex rounded-full border border-white/10 bg-white/5 p-1">
+                <button id="favoritesMovieTab" class="favorites-tab favorites-tab-active" data-favorite-tab="movie">Movies</button>
+                <button id="favoritesSeriesTab" class="favorites-tab" data-favorite-tab="series">Series</button>
+              </div>
+
+              <div class="mt-4 flex flex-wrap gap-2">
                 <button
                   id="exportFavoritesBtn"
                   class="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/10"
                 >
                   Export JSON
+                </button>
+                <button
+                  id="toggleFavoritesBtn"
+                  class="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/10"
+                >
+                  Toggle Panel
                 </button>
                 <button
                   id="clearSearchBtn"
@@ -132,17 +153,18 @@
                   Reset View
                 </button>
               </div>
-              <div id="favoritesPanel" class="mt-4 max-h-[22rem] space-y-3 overflow-y-auto pr-1"></div>
+
+              <div id="favoritesPanel" class="mt-4 max-h-[24rem] space-y-3 overflow-y-auto pr-1"></div>
             </aside>
           </div>
         </header>
 
-        <section class="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
+        <section class="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
           <div class="glass-panel rounded-[2rem] border border-white/10 p-6 backdrop-blur-xl">
-            <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p class="text-sm uppercase tracking-[0.28em] text-orange-200">Results</p>
-                <h2 class="mt-2 text-2xl font-semibold">Your movie matches</h2>
+                <p id="resultsEyebrow" class="text-sm uppercase tracking-[0.28em] text-orange-200">Movie Results</p>
+                <h2 id="resultsHeading" class="mt-2 text-2xl font-semibold">Your tailored watchlist</h2>
               </div>
               <div class="w-full max-w-md">
                 <p class="text-sm font-medium text-slate-300">Recent searches</p>
@@ -155,7 +177,7 @@
             </div>
 
             <div id="emptyState" class="mt-6 rounded-[1.75rem] border border-dashed border-white/10 bg-white/5 p-6 text-slate-300">
-              Start with a mood, try a genre chip, or hit Surprise Me to generate 4 tailored movie picks.
+              Pick Movies or Web Series, then search by mood, genre, or Surprise Me to generate AI recommendations.
             </div>
 
             <div id="resultsGrid" class="mt-6 hidden grid gap-4 md:grid-cols-2"></div>
@@ -180,10 +202,23 @@
 
             <section class="glass-panel rounded-[2rem] border border-white/10 p-6 backdrop-blur-xl">
               <div>
-                <p class="text-sm uppercase tracking-[0.28em] text-emerald-200">Trending Movies</p>
-                <h2 class="mt-2 text-2xl font-semibold">What the AI says is hot</h2>
+                <p class="text-sm uppercase tracking-[0.28em] text-emerald-200">Series Of The Day</p>
+                <h2 class="mt-2 text-2xl font-semibold">Binge recommendation</h2>
               </div>
-              <div id="trendingGrid" class="mt-5 grid gap-3"></div>
+              <div id="seriesOfDayCard" class="mt-5"></div>
+            </section>
+
+            <section class="glass-panel rounded-[2rem] border border-white/10 p-6 backdrop-blur-xl">
+              <div class="grid gap-6 lg:grid-cols-2">
+                <div>
+                  <p class="text-sm uppercase tracking-[0.28em] text-orange-200">Trending Movies</p>
+                  <div id="trendingMoviesGrid" class="mt-4 grid gap-3"></div>
+                </div>
+                <div>
+                  <p class="text-sm uppercase tracking-[0.28em] text-emerald-200">Trending Series</p>
+                  <div id="trendingSeriesGrid" class="mt-4 grid gap-3"></div>
+                </div>
+              </div>
             </section>
           </div>
         </section>
