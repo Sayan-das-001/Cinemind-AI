@@ -11,10 +11,8 @@
           extend: {
             colors: {
               midnight: "#07111f",
-              slateglass: "#101c2d",
               accent: "#f97316",
               accentSoft: "#fb923c",
-              ocean: "#38bdf8",
             },
             boxShadow: {
               glow: "0 20px 60px rgba(249, 115, 22, 0.18)",
@@ -43,12 +41,11 @@
           <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div class="max-w-3xl">
               <p class="mb-4 inline-flex rounded-full border border-orange-400/30 bg-orange-500/10 px-4 py-1 text-sm font-medium text-orange-200">
-                Dual-Mode AI Entertainment Platform
+                AI Entertainment Platform
               </p>
               <h1 class="text-4xl font-bold tracking-tight md:text-6xl">CineMind AI</h1>
               <p class="mt-4 max-w-2xl text-sm text-slate-300 md:text-base">
-                Switch between movies and web series, save favorites, discover what to watch next, and let AI build
-                your perfect watchlist.
+                Discover movies and web series with AI, enrich them with real TMDB data, save favorites, and chat your way into the next perfect watch.
               </p>
             </div>
 
@@ -72,7 +69,7 @@
             </div>
           </div>
 
-          <div class="mt-8 grid gap-6 xl:grid-cols-[1.5fr_0.92fr]">
+          <div class="mt-8 grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">
             <div class="rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
               <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <label for="moodInput" class="block text-sm font-medium text-slate-200">What are you in the mood for?</label>
@@ -86,7 +83,7 @@
                 <input
                   id="moodInput"
                   type="text"
-                  placeholder="Try cozy, chaotic, late-night thriller, feel-good binge, or thought-provoking sci-fi..."
+                  placeholder="Try cozy, dark mystery binge, uplifting sci-fi, or suggest something like Interstellar but happier..."
                   class="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white placeholder:text-slate-400 focus:border-orange-400/60 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
                 />
                 <button
@@ -160,35 +157,66 @@
         </header>
 
         <section class="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
-          <div class="glass-panel rounded-[2rem] border border-white/10 p-6 backdrop-blur-xl">
-            <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p id="resultsEyebrow" class="text-sm uppercase tracking-[0.28em] text-orange-200">Movie Results</p>
-                <h2 id="resultsHeading" class="mt-2 text-2xl font-semibold">Your tailored watchlist</h2>
+          <div class="space-y-6">
+            <section class="glass-panel rounded-[2rem] border border-white/10 p-6 backdrop-blur-xl">
+              <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p id="resultsEyebrow" class="text-sm uppercase tracking-[0.28em] text-orange-200">Movie Results</p>
+                  <h2 id="resultsHeading" class="mt-2 text-2xl font-semibold">Your tailored watchlist</h2>
+                </div>
+                <div class="w-full max-w-md">
+                  <p class="text-sm font-medium text-slate-300">Recent searches</p>
+                  <div id="recentSearches" class="mt-2 flex flex-wrap gap-2"></div>
+                </div>
               </div>
-              <div class="w-full max-w-md">
-                <p class="text-sm font-medium text-slate-300">Recent searches</p>
-                <div id="recentSearches" class="mt-2 flex flex-wrap gap-2"></div>
+
+              <div id="loading" class="mt-6 hidden">
+                <div id="skeletonGrid" class="grid gap-4 md:grid-cols-2"></div>
               </div>
-            </div>
 
-            <div id="loading" class="mt-6 hidden">
-              <div id="skeletonGrid" class="grid gap-4 md:grid-cols-2"></div>
-            </div>
+              <div id="emptyState" class="mt-6 rounded-[1.75rem] border border-dashed border-white/10 bg-white/5 p-6 text-slate-300">
+                Pick Movies or Web Series, then search by mood, genre, Surprise Me, or jump into chat mode.
+              </div>
 
-            <div id="emptyState" class="mt-6 rounded-[1.75rem] border border-dashed border-white/10 bg-white/5 p-6 text-slate-300">
-              Pick Movies or Web Series, then search by mood, genre, or Surprise Me to generate AI recommendations.
-            </div>
+              <div id="resultsGrid" class="mt-6 hidden grid gap-4 md:grid-cols-2"></div>
+            </section>
 
-            <div id="resultsGrid" class="mt-6 hidden grid gap-4 md:grid-cols-2"></div>
+            <section class="glass-panel rounded-[2rem] border border-white/10 p-6 backdrop-blur-xl">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm uppercase tracking-[0.28em] text-sky-200">AI Chat Assistant</p>
+                  <h2 class="mt-2 text-2xl font-semibold">Talk your way into better recommendations</h2>
+                </div>
+                <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">Context-aware</span>
+              </div>
+
+              <div id="chatMessages" class="chat-panel mt-5 space-y-3"></div>
+
+              <div class="mt-4 flex flex-col gap-3 lg:flex-row">
+                <input
+                  id="chatInput"
+                  type="text"
+                  placeholder="Suggest something like Interstellar but happier..."
+                  class="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white placeholder:text-slate-400 focus:border-sky-400/60 focus:outline-none focus:ring-2 focus:ring-sky-500/25"
+                />
+                <button
+                  id="sendChatBtn"
+                  class="inline-flex items-center justify-center rounded-2xl border border-sky-300/30 bg-sky-500/15 px-6 py-4 font-semibold text-sky-100 transition hover:-translate-y-0.5 hover:bg-sky-500/20"
+                >
+                  Ask CineMind
+                </button>
+              </div>
+
+              <div id="chatSuggestions" class="mt-5 grid gap-4 md:grid-cols-2"></div>
+            </section>
           </div>
 
           <div class="space-y-6">
             <section class="glass-panel rounded-[2rem] border border-white/10 p-6 backdrop-blur-xl">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-sm uppercase tracking-[0.28em] text-sky-200">Movie Of The Day</p>
-                  <h2 class="mt-2 text-2xl font-semibold">Tonight's spotlight</h2>
+                  <p class="text-sm uppercase tracking-[0.28em] text-sky-200">Discovery</p>
+                  <h2 class="mt-2 text-2xl font-semibold">What to watch right now</h2>
                 </div>
                 <button
                   id="refreshDiscoveryBtn"
@@ -197,15 +225,18 @@
                   Refresh
                 </button>
               </div>
-              <div id="movieOfDayCard" class="mt-5"></div>
-            </section>
 
-            <section class="glass-panel rounded-[2rem] border border-white/10 p-6 backdrop-blur-xl">
-              <div>
-                <p class="text-sm uppercase tracking-[0.28em] text-emerald-200">Series Of The Day</p>
-                <h2 class="mt-2 text-2xl font-semibold">Binge recommendation</h2>
+              <div class="mt-5 grid gap-4">
+                <div>
+                  <p class="text-sm uppercase tracking-[0.24em] text-orange-200">Movie Of The Day</p>
+                  <div id="movieOfDayCard" class="mt-3"></div>
+                </div>
+
+                <div>
+                  <p class="text-sm uppercase tracking-[0.24em] text-emerald-200">Series Of The Day</p>
+                  <div id="seriesOfDayCard" class="mt-3"></div>
+                </div>
               </div>
-              <div id="seriesOfDayCard" class="mt-5"></div>
             </section>
 
             <section class="glass-panel rounded-[2rem] border border-white/10 p-6 backdrop-blur-xl">

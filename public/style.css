@@ -39,6 +39,7 @@ body {
 
 #findMovieBtn,
 #moodInput,
+#chatInput,
 .action-button,
 .movie-card,
 .trend-item,
@@ -79,11 +80,6 @@ body {
   font-size: 0.85rem;
   font-weight: 600;
   padding: 0.65rem 1rem;
-}
-
-.mode-tab:hover,
-.favorites-tab:hover {
-  color: #ffffff;
 }
 
 .mode-tab-active {
@@ -138,11 +134,60 @@ body {
 }
 
 .compact-card {
-  padding: 1.25rem;
+  padding: 1.1rem;
 }
 
 .compact-card h3 {
-  font-size: 1.5rem;
+  font-size: 1.45rem;
+}
+
+.backdrop-glow {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  filter: blur(28px);
+  opacity: 0.15;
+  transform: scale(1.1);
+}
+
+.poster-frame {
+  align-self: start;
+  width: 100%;
+  max-width: 140px;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.poster-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.poster-placeholder {
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  color: rgba(226, 232, 240, 0.75);
+  text-align: center;
+}
+
+.trend-poster {
+  width: 3.5rem;
+  min-width: 3.5rem;
+  height: 5.2rem;
+  object-fit: cover;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.trend-poster-placeholder {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .action-button,
@@ -179,6 +224,34 @@ body {
   transform: translateY(-2px);
   border-color: rgba(110, 231, 183, 0.25);
   background: rgba(255, 255, 255, 0.08);
+}
+
+.chat-panel {
+  max-height: 18rem;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1rem;
+}
+
+.chat-bubble {
+  max-width: 90%;
+  border-radius: 1.25rem;
+  padding: 0.85rem 1rem;
+  line-height: 1.6;
+}
+
+.chat-bubble-user {
+  margin-left: auto;
+  background: rgba(249, 115, 22, 0.16);
+  border: 1px solid rgba(249, 115, 22, 0.22);
+}
+
+.chat-bubble-ai {
+  margin-right: auto;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.2);
 }
 
 .skeleton-card {

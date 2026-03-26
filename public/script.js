@@ -24,14 +24,19 @@ const trendingMoviesGrid = document.getElementById("trendingMoviesGrid");
 const trendingSeriesGrid = document.getElementById("trendingSeriesGrid");
 const refreshDiscoveryBtn = document.getElementById("refreshDiscoveryBtn");
 const toastContainer = document.getElementById("toastContainer");
+const chatMessages = document.getElementById("chatMessages");
+const chatInput = document.getElementById("chatInput");
+const sendChatBtn = document.getElementById("sendChatBtn");
+const chatSuggestions = document.getElementById("chatSuggestions");
 
 const MOVIE_MODE_BTN = document.getElementById("movieModeBtn");
 const SERIES_MODE_BTN = document.getElementById("seriesModeBtn");
 const FAVORITES_MOVIE_TAB = document.getElementById("favoritesMovieTab");
 const FAVORITES_SERIES_TAB = document.getElementById("favoritesSeriesTab");
 
-const FAVORITES_KEY = "cinemind-favorites-v2";
-const RECENT_KEY = "cinemind-recent-searches-v2";
+const FAVORITES_KEY = "cinemind-favorites-v3";
+const RECENT_KEY = "cinemind-recent-searches-v3";
+const CHAT_KEY = "cinemind-chat-history-v1";
 
 const moodPresets = {
   movie: [
@@ -76,6 +81,8 @@ const state = {
     trendingMovies: [],
     trendingSeries: [],
   },
+  chatHistory: loadStorage(CHAT_KEY, []),
+  chatSuggestions: [],
 };
 
 function loadStorage(key, fallback) {
@@ -135,6 +142,13 @@ function isFavorite(item) {
   return getFavoritesBucket(mediaType).some((entry) => getItemKey(entry) === getItemKey(item));
 }
 
+function buildPreferencePayload() {
+  return {
+    recentSearches: state.recent.map((entry) => entry.replace(/^movie::|^series::/i, "")),
+    favorites: [...state.favorites.movie, ...state.favorites.series].slice(0, 8).map((item) => item.title),
+  };
+}
+
 function setStatus(message, isError = false) {
   statusMessage.textContent = message;
   statusMessage.className = `mt-4 min-h-6 text-sm ${isError ? "text-rose-300" : "text-slate-300"}`;
@@ -151,6 +165,7 @@ function setLoading(isLoading) {
   loading.classList.toggle("hidden", !isLoading);
   findMovieBtn.disabled = isLoading;
   surpriseBtn.disabled = isLoading;
+  sendChatBtn.disabled = isLoading;
   moodInput.disabled = isLoading;
   MOVIE_MODE_BTN.disabled = isLoading;
   SERIES_MODE_BTN.disabled = isLoading;
@@ -167,11 +182,8 @@ function createSkeletonCard() {
     <article class="skeleton-card rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
       <div class="skeleton-line h-3 w-24 rounded-full"></div>
       <div class="skeleton-line mt-4 h-8 w-3/4 rounded-full"></div>
+      <div class="skeleton-line mt-4 h-48 w-full rounded-2xl"></div>
       <div class="skeleton-line mt-4 h-20 w-full rounded-2xl"></div>
-      <div class="mt-5 grid gap-3 sm:grid-cols-2">
-        <div class="skeleton-line h-16 rounded-2xl"></div>
-        <div class="skeleton-line h-16 rounded-2xl"></div>
-      </div>
       <div class="mt-5 flex gap-2">
         <div class="skeleton-line h-10 flex-1 rounded-xl"></div>
         <div class="skeleton-line h-10 flex-1 rounded-xl"></div>
@@ -240,6 +252,7 @@ function toggleFavorite(item) {
   renderFavorites();
   renderResults();
   renderDiscoveryCards();
+  renderChatSuggestions();
 }
 
 function renderFavorites() {
@@ -300,50 +313,44 @@ function buildMetaLine(item) {
   return `${item.year || "Year N/A"} | ${item.rating || "Rating N/A"}`;
 }
 
-function buildSupportPanels(item) {
+function buildMediaInfoLine(item) {
   if (getMediaType(item) === "series") {
     return `
-      <div class="mt-4 grid gap-3 sm:grid-cols-2">
-        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Cast</p>
-          <p class="mt-2 text-sm text-white">${escapeHtml(item.cast?.join(", ") || "Not available")}</p>
-        </div>
-        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Status</p>
-          <p class="mt-2 text-sm text-white">${escapeHtml(item.status || "Not available")}</p>
-        </div>
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Platform</p>
+        <p class="mt-2 text-sm text-white">${escapeHtml(item.platform || "Not available")}</p>
       </div>
-      <div class="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div>
-          <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Platform</p>
-          <p class="mt-2 text-sm text-white">${escapeHtml(item.platform || "Not available")}</p>
-        </div>
-        <button class="icon-action ${isFavorite(item) ? "icon-action-active" : ""}" data-toggle-favorite="${getItemKey(item)}">
-          ${isFavorite(item) ? "Saved" : "Add to Favorites"}
-        </button>
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Status</p>
+        <p class="mt-2 text-sm text-white">${escapeHtml(item.status || "Not available")}</p>
       </div>
     `;
   }
 
   return `
-    <div class="mt-4 grid gap-3 sm:grid-cols-2">
-      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Director</p>
-        <p class="mt-2 text-sm text-white">${escapeHtml(item.director || "Not available")}</p>
-      </div>
-      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Cast</p>
-        <p class="mt-2 text-sm text-white">${escapeHtml(item.cast?.join(", ") || "Not available")}</p>
-      </div>
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Director</p>
+      <p class="mt-2 text-sm text-white">${escapeHtml(item.director || "Not available")}</p>
     </div>
-    <div class="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
-      <div>
-        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Streaming</p>
-        <p class="mt-2 text-sm text-white">${escapeHtml(item.streaming || "Not available")}</p>
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Runtime / Platform</p>
+      <p class="mt-2 text-sm text-white">${escapeHtml(item.runtime || item.platform || "Not available")}</p>
+    </div>
+  `;
+}
+
+function createPosterMarkup(item) {
+  if (item.poster) {
+    return `
+      <div class="poster-frame">
+        <img src="${escapeHtml(item.poster)}" alt="${escapeHtml(item.title)} poster" class="poster-image" loading="lazy" />
       </div>
-      <button class="icon-action ${isFavorite(item) ? "icon-action-active" : ""}" data-toggle-favorite="${getItemKey(item)}">
-        ${isFavorite(item) ? "Saved" : "Add to Favorites"}
-      </button>
+    `;
+  }
+
+  return `
+    <div class="poster-frame poster-placeholder">
+      <span>${escapeHtml(item.title || "CineMind")}</span>
     </div>
   `;
 }
@@ -351,32 +358,46 @@ function buildSupportPanels(item) {
 function createMediaCard(item, options = {}) {
   const compact = options.compact ? "compact-card" : "";
   const tone = getMediaType(item) === "series" ? "text-emerald-200" : "text-orange-200";
-  const moreLikeLabel = getMediaType(item) === "series" ? "More Like This" : "More Like This";
+  const favoriteActive = isFavorite(item) ? "icon-action-active" : "";
 
   return `
     <article class="movie-card ${compact} rounded-[1.6rem] border border-white/10 bg-slate-950/35 p-5" data-item-key="${getItemKey(item)}">
-      <div class="flex items-start justify-between gap-4">
+      ${item.backdrop ? `<div class="backdrop-glow" style="background-image:url('${escapeHtml(item.backdrop)}')"></div>` : ""}
+      <div class="relative z-10 grid gap-4 ${options.compact ? "" : "md:grid-cols-[140px_1fr]"}">
+        ${createPosterMarkup(item)}
         <div>
-          <p class="text-xs uppercase tracking-[0.28em] ${tone}">${escapeHtml(buildMetaLine(item))}</p>
-          <h3 class="mt-3 text-2xl font-semibold text-white">${escapeHtml(item.title || "Unknown title")}</h3>
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs uppercase tracking-[0.28em] ${tone}">${escapeHtml(buildMetaLine(item))}</p>
+              <h3 class="mt-3 text-2xl font-semibold text-white">${escapeHtml(item.title || "Unknown title")}</h3>
+            </div>
+            <button class="icon-action ${favoriteActive}" data-toggle-favorite="${getItemKey(item)}">
+              ${isFavorite(item) ? "Saved" : "Favorite"}
+            </button>
+          </div>
+
+          <p class="mt-4 text-sm leading-7 text-slate-200">${escapeHtml(item.desc || "No description available.")}</p>
+          <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p class="text-xs uppercase tracking-[0.22em] ${getMediaType(item) === "series" ? "text-emerald-200" : "text-sky-200"}">Why it fits</p>
+            <p class="mt-2 text-sm text-slate-200">${escapeHtml(item.reason || "A strong fit for this vibe.")}</p>
+          </div>
+
+          <div class="mt-4 grid gap-3 sm:grid-cols-2">
+            ${buildMediaInfoLine(item)}
+          </div>
+
+          <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Cast</p>
+            <p class="mt-2 text-sm text-white">${escapeHtml(item.cast?.join(", ") || "Not available")}</p>
+          </div>
+
+          <div class="mt-4 grid gap-2 sm:grid-cols-4">
+            <button class="action-button" data-more-like-this="${escapeHtml(item.title)}" data-more-like-type="${getMediaType(item)}">More Like This</button>
+            <button class="action-button" data-watch-trailer="${escapeHtml(item.title)}">Watch Trailer</button>
+            <button class="action-button" data-open-tmdb="${escapeHtml(item.tmdbUrl || "")}">TMDB</button>
+            <button class="action-button" data-make-active="${getItemKey(item)}">Focus Card</button>
+          </div>
         </div>
-        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">${escapeHtml(
-          getMediaType(item) === "series" ? item.platform || "Platform N/A" : item.runtime || "Runtime N/A"
-        )}</span>
-      </div>
-
-      <p class="mt-4 text-sm leading-7 text-slate-200">${escapeHtml(item.desc || "No description available.")}</p>
-      <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <p class="text-xs uppercase tracking-[0.22em] ${getMediaType(item) === "series" ? "text-emerald-200" : "text-sky-200"}">Why it fits</p>
-        <p class="mt-2 text-sm text-slate-200">${escapeHtml(item.reason || "A strong fit for this vibe.")}</p>
-      </div>
-
-      ${buildSupportPanels(item)}
-
-      <div class="mt-4 grid gap-2 sm:grid-cols-3">
-        <button class="action-button" data-more-like-this="${escapeHtml(item.title)}" data-more-like-type="${getMediaType(item)}">${moreLikeLabel}</button>
-        <button class="action-button" data-watch-trailer="${escapeHtml(item.title)}">Watch Trailer</button>
-        <button class="action-button" data-make-active="${getItemKey(item)}">Focus Card</button>
       </div>
     </article>
   `;
@@ -395,6 +416,31 @@ function renderResults() {
   resultsGrid.innerHTML = state.results.map((item) => createMediaCard(item)).join("");
 }
 
+function renderTrendingList(items, mediaType) {
+  return Array.isArray(items) && items.length
+    ? items
+        .map(
+          (item) => `
+            <button class="trend-item text-left" data-trending-title="${escapeHtml(item.title)}" data-trending-type="${mediaType}">
+              <div class="flex items-start gap-3">
+                ${item.poster ? `<img src="${escapeHtml(item.poster)}" alt="${escapeHtml(item.title)} poster" class="trend-poster" loading="lazy" />` : '<div class="trend-poster trend-poster-placeholder"></div>'}
+                <div>
+                  <p class="text-xs uppercase tracking-[0.24em] ${mediaType === "series" ? "text-emerald-200" : "text-orange-200"}">${escapeHtml(
+                    mediaType === "series" ? item.status || "Series" : item.year || "Movie"
+                  )}</p>
+                  <h3 class="mt-2 text-lg font-semibold text-white">${escapeHtml(item.title)}</h3>
+                  <p class="mt-2 text-sm text-slate-300">${escapeHtml(item.reason || item.desc || "Popular for the moment.")}</p>
+                </div>
+              </div>
+            </button>
+          `
+        )
+        .join("")
+    : `<div class="rounded-[1.4rem] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">Trending ${
+        mediaType === "series" ? "series" : "movies"
+      } will appear here once discovery loads.</div>`;
+}
+
 function renderDiscoveryCards() {
   movieOfDayCard.innerHTML = state.discovery.movieOfDay?.title
     ? createMediaCard(state.discovery.movieOfDay, { compact: true })
@@ -408,26 +454,34 @@ function renderDiscoveryCards() {
   trendingSeriesGrid.innerHTML = renderTrendingList(state.discovery.trendingSeries, "series");
 }
 
-function renderTrendingList(items, mediaType) {
-  return Array.isArray(items) && items.length
-    ? items
-        .map(
-          (item) => `
-            <button class="trend-item text-left" data-trending-title="${escapeHtml(item.title)}" data-trending-type="${mediaType}">
-              <div>
-                <p class="text-xs uppercase tracking-[0.24em] ${mediaType === "series" ? "text-emerald-200" : "text-orange-200"}">${escapeHtml(
-                  mediaType === "series" ? item.status || "Series" : item.year || "Movie"
-                )}</p>
-                <h3 class="mt-2 text-lg font-semibold text-white">${escapeHtml(item.title)}</h3>
-              </div>
-              <p class="mt-2 text-sm text-slate-300">${escapeHtml(item.reason || item.desc || "Popular for the moment.")}</p>
-            </button>
-          `
-        )
-        .join("")
-    : `<div class="rounded-[1.4rem] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">Trending ${
-        mediaType === "series" ? "series" : "movies"
-      } will appear here once discovery loads.</div>`;
+function renderChatMessages() {
+  if (!state.chatHistory.length) {
+    chatMessages.innerHTML = `
+      <div class="rounded-[1.4rem] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">
+        Ask CineMind for nuanced picks like "suggest something like Interstellar but happier."
+      </div>
+    `;
+    return;
+  }
+
+  chatMessages.innerHTML = state.chatHistory
+    .slice(-10)
+    .map(
+      (entry) => `
+        <div class="chat-bubble ${entry.role === "assistant" ? "chat-bubble-ai" : "chat-bubble-user"}">
+          <p>${escapeHtml(entry.content)}</p>
+        </div>
+      `
+    )
+    .join("");
+
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function renderChatSuggestions() {
+  chatSuggestions.innerHTML = state.chatSuggestions.length
+    ? state.chatSuggestions.map((item) => createMediaCard(item, { compact: true })).join("")
+    : "";
 }
 
 async function fetchJson(url, payload, retryCount = 1) {
@@ -461,10 +515,6 @@ async function fetchJson(url, payload, retryCount = 1) {
   }
 }
 
-function getPromptDescriptor(mediaType) {
-  return mediaType === "series" ? "series" : "movies";
-}
-
 async function requestRecommendations({ mood, mode = "mood", title = "", mediaType = state.mediaType }) {
   const query = (mode === "similar" ? title : mood).trim();
 
@@ -481,7 +531,7 @@ async function requestRecommendations({ mood, mode = "mood", title = "", mediaTy
   setLoading(true);
   setStatus(
     mode === "similar"
-      ? `Finding ${getPromptDescriptor(mediaType)} like ${title}...`
+      ? `Finding ${mediaType === "series" ? "series" : "movies"} like ${title}...`
       : `CineMind AI is building your ${mediaType === "series" ? "binge list" : "watchlist"}...`
   );
 
@@ -492,6 +542,7 @@ async function requestRecommendations({ mood, mode = "mood", title = "", mediaTy
       title,
       count: 4,
       mediaType,
+      preferences: buildPreferencePayload(),
     });
 
     state.results = Array.isArray(items) ? items : [];
@@ -554,7 +605,7 @@ function resetView() {
   state.results = [];
   state.activeItemKey = null;
   renderResults();
-  setStatus("View reset. Try another mood, recent search, or a trending pick.");
+  setStatus("View reset. Try another mood, recent search, a trending pick, or chat prompt.");
 }
 
 function buildGenreButtons() {
@@ -564,8 +615,11 @@ function buildGenreButtons() {
 }
 
 function toggleActiveFavorite() {
-  const fallbackItem = state.results[0];
-  const activeItem = state.results.find((item) => getItemKey(item) === state.activeItemKey) || fallbackItem;
+  const fallbackItem = state.results[0] || state.chatSuggestions[0];
+  const activeItem =
+    state.results.find((item) => getItemKey(item) === state.activeItemKey) ||
+    state.chatSuggestions.find((item) => getItemKey(item) === state.activeItemKey) ||
+    fallbackItem;
 
   if (!activeItem) {
     showToast(`Search for ${state.mediaType === "series" ? "series" : "movies"} first, then press F.`, "error");
@@ -597,6 +651,49 @@ function getDiscoveryItemByKey(itemKey) {
   return allDiscoveryItems.find((item) => getItemKey(item) === itemKey) || null;
 }
 
+function appendChatMessage(role, content) {
+  state.chatHistory.push({ role, content });
+  state.chatHistory = state.chatHistory.slice(-12);
+  saveStorage(CHAT_KEY, state.chatHistory);
+  renderChatMessages();
+}
+
+async function sendChatMessage() {
+  const content = chatInput.value.trim();
+
+  if (!content) {
+    showToast("Type a chat message first.", "error");
+    chatInput.focus();
+    return;
+  }
+
+  appendChatMessage("user", content);
+  chatInput.value = "";
+  sendChatBtn.disabled = true;
+
+  try {
+    const data = await fetchJson(
+      "/api/chat",
+      {
+        mediaType: state.mediaType,
+        history: state.chatHistory,
+        preferences: buildPreferencePayload(),
+      },
+      1
+    );
+
+    appendChatMessage("assistant", data.message || "Here are a few ideas you might enjoy.");
+    state.chatSuggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+    renderChatSuggestions();
+    showToast("Chat recommendations updated.", "success");
+  } catch (error) {
+    appendChatMessage("assistant", "I hit a snag while thinking through that. Please try again.");
+    showToast(error.message || "Unable to chat right now.", "error");
+  } finally {
+    sendChatBtn.disabled = false;
+  }
+}
+
 function bindGlobalEvents() {
   findMovieBtn.addEventListener("click", () => {
     requestRecommendations({ mood: moodInput.value.trim(), mediaType: state.mediaType });
@@ -612,14 +709,14 @@ function bindGlobalEvents() {
     state.mediaType = "movie";
     syncModeTabs();
     updateResultsHeader();
-    setStatus("Movie mode enabled. Search by mood or hit Surprise Me.");
+    setStatus("Movie mode enabled. Search by mood, use Surprise Me, or start chatting.");
   });
 
   SERIES_MODE_BTN.addEventListener("click", () => {
     state.mediaType = "series";
     syncModeTabs();
     updateResultsHeader();
-    setStatus("Web Series mode enabled. Search by mood or hit Surprise Me.");
+    setStatus("Web Series mode enabled. Search by mood, use Surprise Me, or start chatting.");
   });
 
   FAVORITES_MOVIE_TAB.addEventListener("click", () => {
@@ -640,10 +737,17 @@ function bindGlobalEvents() {
   exportFavoritesBtn.addEventListener("click", exportFavorites);
   clearSearchBtn.addEventListener("click", resetView);
   refreshDiscoveryBtn.addEventListener("click", loadDiscovery);
+  sendChatBtn.addEventListener("click", sendChatMessage);
 
   moodInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       requestRecommendations({ mood: moodInput.value.trim(), mediaType: state.mediaType });
+    }
+  });
+
+  chatInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      sendChatMessage();
     }
   });
 
@@ -672,6 +776,7 @@ function bindGlobalEvents() {
       const itemKey = favoriteButton.dataset.toggleFavorite;
       const item =
         state.results.find((entry) => getItemKey(entry) === itemKey) ||
+        state.chatSuggestions.find((entry) => getItemKey(entry) === itemKey) ||
         getDiscoveryItemByKey(itemKey);
       if (item) {
         toggleFavorite(item);
@@ -710,6 +815,12 @@ function bindGlobalEvents() {
     const trailerButton = event.target.closest("[data-watch-trailer]");
     if (trailerButton) {
       openTrailer(trailerButton.dataset.watchTrailer);
+      return;
+    }
+
+    const tmdbButton = event.target.closest("[data-open-tmdb]");
+    if (tmdbButton && tmdbButton.dataset.openTmdb) {
+      window.open(tmdbButton.dataset.openTmdb, "_blank", "noopener");
       return;
     }
 
@@ -775,9 +886,11 @@ function init() {
   renderFavorites();
   renderResults();
   renderDiscoveryCards();
+  renderChatMessages();
+  renderChatSuggestions();
   loadDiscovery();
   bindGlobalEvents();
-  setStatus("Pick Movies or Web Series, then search by mood, genre, or Surprise Me.");
+  setStatus("Pick Movies or Web Series, then search by mood, genre, Surprise Me, or chat with CineMind.");
 }
 
 init();
