@@ -229,4 +229,4 @@ If you like this project, consider giving it a **star** on GitHub. It helps the 
 
 ## 📜 License
 
-This project is licensed under the ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg).
+This project is licensed under the [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/Sayan-das-001/Cinemind-AI/blob/main/LICENSE.md).
