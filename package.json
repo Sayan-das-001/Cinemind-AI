@@ -1,0 +1,22 @@
+{
+  "name": "cinemind-ai",
+  "version": "1.0.0",
+  "description": "AI-powered movie recommendation app using Express and Google Gemini.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "movies",
+    "gemini",
+    "express",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "latest",
+    "dotenv": "latest",
+    "express": "latest"
+  }
+}
