@@ -17,8 +17,7 @@
 
 ## 🎥 Demo Preview
 
-A demo GIF or short walkthrough video can be added here later to showcase the app experience.
-
+(https://cinemind-ai-kk34.onrender.com/)
 ---
 
 ## ✨ Features
