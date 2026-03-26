@@ -229,4 +229,4 @@ If you like this project, consider giving it a **star** on GitHub. It helps the 
 
 ## 📜 License
 
-This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
+This project is licensed under the ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg).
