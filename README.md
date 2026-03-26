@@ -6,10 +6,10 @@
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20App-orange?style=for-the-badge&logo=render)](https://cinemind-ai-kk34.onrender.com/)
 
-![Gemini AI](https://img.shields.io/badge/Gemini%20AI-Powered-4285F4?style=for-the-badge&logo=google)
-![TMDB API](https://img.shields.io/badge/TMDB-Real%20Data-01D277?style=for-the-badge&logo=themoviedatabase)
-![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?style=for-the-badge&logo=node.js)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-UI-06B6D4?style=for-the-badge&logo=tailwindcss)
+[![Gemini AI](https://img.shields.io/badge/Gemini%20AI-Powered-4285F4?style=for-the-badge&logo=google)](https://console.cloud.google.com/apis/credentials)
+[![TMDB API](https://img.shields.io/badge/TMDB-Real%20Data-01D277?style=for-the-badge&logo=themoviedatabase)](https://developer.themoviedb.org/reference/getting-started)
+[![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?style=for-the-badge&logo=node.js)](https://nodejs.org/en/download)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-UI-06B6D4?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/docs/installation/using-vite)
 
 </div>
 
