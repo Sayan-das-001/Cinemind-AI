@@ -1,57 +1,20 @@
 const path = require("path");
 const express = require("express");
 const dotenv = require("dotenv");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_MODEL = "google/gemini-3-flash-preview";
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500";
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
-
-let model = null;
-
-if (GEMINI_API_KEY) {
-  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-  model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-}
-
-function cleanJsonText(rawText) {
-  const trimmed = String(rawText || "").trim();
-
-  if (trimmed.startsWith("```")) {
-    return trimmed.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/, "");
-  }
-
-  return trimmed;
-}
-
-function extractLikelyJson(rawText) {
-  const cleaned = cleanJsonText(rawText);
-
-  if (cleaned.startsWith("[") || cleaned.startsWith("{")) {
-    return cleaned;
-  }
-
-  const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
-  if (arrayMatch) {
-    return arrayMatch[0];
-  }
-
-  const objectMatch = cleaned.match(/\{[\s\S]*\}/);
-  if (objectMatch) {
-    return objectMatch[0];
-  }
-
-  return cleaned;
-}
 
 function normalizeCast(payload) {
   return Array.isArray(payload)
@@ -124,56 +87,178 @@ function normalizeMediaList(payload, mediaType, fallbackCount = 4) {
     .slice(0, Math.min(Math.max(fallbackCount, 3), 5));
 }
 
-function getGeminiErrorMessage(error) {
-  const statusCode = error?.status;
-  const detailedMessage = error?.errorDetails?.find((detail) => detail?.message)?.message;
-
-  if (statusCode === 429) {
-    return "Gemini quota exceeded. Check your billing or rate limits, then try again.";
+function normalizeOpenRouterContent(content) {
+  if (typeof content === "string") {
+    return content;
   }
 
-  if (detailedMessage) {
-    return detailedMessage;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") {
+          return part;
+        }
+
+        if (part && typeof part.text === "string") {
+          return part.text;
+        }
+
+        return "";
+      })
+      .join("");
   }
 
-  if (statusCode === 404) {
-    return `The Gemini model "${GEMINI_MODEL}" is unavailable for this API key. Try another supported model.`;
-  }
-
-  if (statusCode === 403) {
-    return "Gemini API access was denied. Check that the API is enabled, billing is active, and your key has access.";
-  }
-
-  return error?.message || "Failed to fetch recommendations from Gemini.";
+  return String(content || "");
 }
 
-async function generateStructuredJson(prompt, options = {}) {
-  const retries = options.retries ?? 1;
+function findBalancedJsonSlice(text, openingChar, closingChar) {
+  const start = text.indexOf(openingChar);
 
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: options.temperature ?? 0.35,
-        topP: 0.9,
-        maxOutputTokens: options.maxOutputTokens ?? 1400,
-        responseMimeType: "application/json",
-      },
-    });
+  if (start === -1) {
+    return null;
+  }
 
-    const rawText = result.response.text();
-    const jsonCandidate = extractLikelyJson(rawText);
+  let depth = 0;
+  let inString = false;
+  let isEscaped = false;
 
-    try {
-      return JSON.parse(jsonCandidate);
-    } catch (error) {
-      if (attempt === retries) {
-        throw new Error("The AI returned invalid JSON after retrying.");
+  for (let i = start; i < text.length; i += 1) {
+    const char = text[i];
+
+    if (inString) {
+      if (isEscaped) {
+        isEscaped = false;
+      } else if (char === "\\") {
+        isEscaped = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (char === openingChar) {
+      depth += 1;
+    } else if (char === closingChar) {
+      depth -= 1;
+
+      if (depth === 0) {
+        return text.slice(start, i + 1);
       }
     }
   }
 
-  throw new Error("The AI returned an empty response.");
+  return null;
+}
+
+function extractJson(text) {
+  const rawText = normalizeOpenRouterContent(text).trim();
+  const objectStart = rawText.indexOf("{");
+  const arrayStart = rawText.indexOf("[");
+
+  if (objectStart !== -1 && (arrayStart === -1 || objectStart < arrayStart)) {
+    return findBalancedJsonSlice(rawText, "{", "}") || rawText;
+  }
+
+  if (arrayStart !== -1) {
+    return findBalancedJsonSlice(rawText, "[", "]") || rawText;
+  }
+
+  if (objectStart !== -1) {
+    return findBalancedJsonSlice(rawText, "{", "}") || rawText;
+  }
+
+  return rawText;
+}
+
+function safeParse(text) {
+  try {
+    return JSON.parse(extractJson(text));
+  } catch {
+    return null;
+  }
+}
+
+function getOpenRouterErrorMessage(error) {
+  if (error?.code === "INVALID_JSON") {
+    return "The AI returned invalid JSON. Please try again.";
+  }
+
+  if (error?.status === 401 || error?.status === 403) {
+    return "OpenRouter API access was denied. Check your OPENROUTER_API_KEY.";
+  }
+
+  if (error?.status === 404) {
+    return `The OpenRouter model "${OPENROUTER_MODEL}" is unavailable right now.`;
+  }
+
+  if (error?.status === 429) {
+    return "OpenRouter rate limit exceeded. Please try again shortly.";
+  }
+
+  return error?.message || "Failed to fetch recommendations from OpenRouter.";
+}
+
+async function generateFromOpenRouter(prompt, options = {}) {
+  const response = await fetch(OPENROUTER_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "HTTP-Referer": "http://localhost:3000",
+      "X-Title": "CineMind AI",
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: options.maxTokens ?? 800,
+      temperature: options.temperature ?? 0.7,
+    }),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    console.error("OpenRouter API error:", data || response.statusText);
+    const error = new Error(
+      data?.error?.message || `OpenRouter request failed with status ${response.status}.`
+    );
+    error.status = response.status;
+    error.details = data;
+    throw error;
+  }
+
+  const content = data?.choices?.[0]?.message?.content;
+
+  if (!content) {
+    const error = new Error("OpenRouter returned an empty response.");
+    error.status = 502;
+    error.details = data;
+    throw error;
+  }
+
+  return normalizeOpenRouterContent(content);
+}
+
+async function generateStructuredJson(prompt, options = {}) {
+  for (let i = 0; i < 2; i += 1) {
+    const res = await generateFromOpenRouter(prompt, options);
+    const parsed = safeParse(res);
+
+    if (parsed) {
+      return parsed;
+    }
+
+    console.warn("Retrying JSON...");
+  }
+
+  const error = new Error("INVALID_JSON");
+  error.code = "INVALID_JSON";
+  throw error;
 }
 
 function buildPersonalizationContext(preferences = {}) {
@@ -221,7 +306,9 @@ function buildRecommendationPrompt({ mediaType, mode, mood, title, count, prefer
   }
 ]`;
 
-  return `Return ONLY valid JSON. No markdown. No explanation.
+  return `Return ONLY valid JSON.
+Do NOT include explanation.
+Do NOT include markdown.
 
 Output must be a JSON array with exactly ${count} ${isSeries ? "web series" : "movie"} objects.
 
@@ -242,7 +329,9 @@ ${subjectLine}`;
 }
 
 function buildDiscoveryPrompt() {
-  return `Return ONLY valid JSON. No markdown. No explanation.
+  return `Return ONLY valid JSON.
+Do NOT include explanation.
+Do NOT include markdown.
 
 Format:
 {
@@ -333,7 +422,9 @@ function buildChatPrompt({ mediaType, history, preferences }) {
   }
 ]`;
 
-  return `Return ONLY valid JSON. No markdown. No explanation.
+  return `Return ONLY valid JSON.
+Do NOT include explanation.
+Do NOT include markdown.
 
 Format:
 {
@@ -454,15 +545,15 @@ app.post("/api/movie", async (req, res) => {
     return res.status(400).json({ error: "Please enter a mood or title first." });
   }
 
-  if (!model) {
+  if (!OPENROUTER_API_KEY) {
     return res.status(500).json({
-      error: "Gemini API key is missing. Add GEMINI_API_KEY to your .env file.",
+      error: "OpenRouter API key is missing. Add OPENROUTER_API_KEY to your .env file.",
     });
   }
 
   try {
     const prompt = buildRecommendationPrompt({ mediaType, mode, mood, title, count, preferences });
-    const parsed = await generateStructuredJson(prompt, { retries: 1, maxOutputTokens: 1600 });
+    const parsed = await generateStructuredJson(prompt, { maxTokens: 1600, temperature: 0.35 });
     const items = normalizeMediaList(parsed, mediaType, count);
 
     if (items.length < 3) {
@@ -473,22 +564,25 @@ app.post("/api/movie", async (req, res) => {
 
     return res.json(await enrichListWithTmdb(items));
   } catch (error) {
-    console.error("Gemini API error:", error);
-    return res.status(500).json({
-      error: getGeminiErrorMessage(error),
+    console.error("OpenRouter API error:", error);
+    return res.status(error?.status || 500).json({
+      error: getOpenRouterErrorMessage(error),
     });
   }
 });
 
 app.post("/api/discovery", async (req, res) => {
-  if (!model) {
+  if (!OPENROUTER_API_KEY) {
     return res.status(500).json({
-      error: "Gemini API key is missing. Add GEMINI_API_KEY to your .env file.",
+      error: "OpenRouter API key is missing. Add OPENROUTER_API_KEY to your .env file.",
     });
   }
 
   try {
-    const parsed = await generateStructuredJson(buildDiscoveryPrompt(), { retries: 1, maxOutputTokens: 2200 });
+    const parsed = await generateStructuredJson(buildDiscoveryPrompt(), {
+      maxTokens: 2200,
+      temperature: 0.35,
+    });
 
     const movieOfDay = await enrichWithTmdb(normalizeMoviePayload(parsed?.movieOfDay));
     const seriesOfDay = await enrichWithTmdb(normalizeSeriesPayload(parsed?.seriesOfDay));
@@ -502,9 +596,9 @@ app.post("/api/discovery", async (req, res) => {
       trendingSeries,
     });
   } catch (error) {
-    console.error("Gemini API error:", error);
-    return res.status(500).json({
-      error: getGeminiErrorMessage(error),
+    console.error("OpenRouter API error:", error);
+    return res.status(error?.status || 500).json({
+      error: getOpenRouterErrorMessage(error),
     });
   }
 });
@@ -518,17 +612,16 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({ error: "Chat history is required." });
   }
 
-  if (!model) {
+  if (!OPENROUTER_API_KEY) {
     return res.status(500).json({
-      error: "Gemini API key is missing. Add GEMINI_API_KEY to your .env file.",
+      error: "OpenRouter API key is missing. Add OPENROUTER_API_KEY to your .env file.",
     });
   }
 
   try {
     const parsed = await generateStructuredJson(buildChatPrompt({ mediaType, history, preferences }), {
-      retries: 1,
       temperature: 0.45,
-      maxOutputTokens: 1800,
+      maxTokens: 1800,
     });
 
     const message = String(parsed?.message || "Here are a few ideas you might enjoy.").trim();
@@ -536,9 +629,9 @@ app.post("/api/chat", async (req, res) => {
 
     return res.json({ message, suggestions });
   } catch (error) {
-    console.error("Gemini chat error:", error);
-    return res.status(500).json({
-      error: getGeminiErrorMessage(error),
+    console.error("OpenRouter API error:", error);
+    return res.status(error?.status || 500).json({
+      error: getOpenRouterErrorMessage(error),
     });
   }
 });

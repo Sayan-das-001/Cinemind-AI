@@ -28,6 +28,8 @@ const chatMessages = document.getElementById("chatMessages");
 const chatInput = document.getElementById("chatInput");
 const sendChatBtn = document.getElementById("sendChatBtn");
 const chatSuggestions = document.getElementById("chatSuggestions");
+const detailsModal = document.getElementById("detailsModal");
+const detailsModalContent = document.getElementById("detailsModalContent");
 
 const MOVIE_MODE_BTN = document.getElementById("movieModeBtn");
 const SERIES_MODE_BTN = document.getElementById("seriesModeBtn");
@@ -253,6 +255,11 @@ function toggleFavorite(item) {
   renderResults();
   renderDiscoveryCards();
   renderChatSuggestions();
+
+  if (!detailsModal.classList.contains("hidden")) {
+    const latestItem = getItemByKey(getItemKey(item)) || item;
+    openDetailsModal(latestItem);
+  }
 }
 
 function renderFavorites() {
@@ -316,25 +323,25 @@ function buildMetaLine(item) {
 function buildMediaInfoLine(item) {
   if (getMediaType(item) === "series") {
     return `
-      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Platform</p>
-        <p class="mt-2 text-sm text-white">${escapeHtml(item.platform || "Not available")}</p>
+      <div class="p-3 rounded-xl border border-white/10 bg-white/5 text-left">
+        <p class="text-xs uppercase tracking-wider text-gray-500 mb-1">Platform</p>
+        <p class="text-sm text-gray-200 leading-relaxed">${escapeHtml(item.platform || "Not available")}</p>
       </div>
-      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Status</p>
-        <p class="mt-2 text-sm text-white">${escapeHtml(item.status || "Not available")}</p>
+      <div class="p-3 rounded-xl border border-white/10 bg-white/5 text-left">
+        <p class="text-xs uppercase tracking-wider text-gray-500 mb-1">Status</p>
+        <p class="text-sm text-gray-200 leading-relaxed">${escapeHtml(item.status || "Not available")}</p>
       </div>
     `;
   }
 
   return `
-    <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Director</p>
-      <p class="mt-2 text-sm text-white">${escapeHtml(item.director || "Not available")}</p>
+    <div class="p-3 rounded-xl border border-white/10 bg-white/5 text-left">
+      <p class="text-xs uppercase tracking-wider text-gray-500 mb-1">Director</p>
+      <p class="text-sm text-gray-200 leading-relaxed">${escapeHtml(item.director || "Not available")}</p>
     </div>
-    <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Runtime / Platform</p>
-      <p class="mt-2 text-sm text-white">${escapeHtml(item.runtime || item.platform || "Not available")}</p>
+    <div class="p-3 rounded-xl border border-white/10 bg-white/5 text-left">
+      <p class="text-xs uppercase tracking-wider text-gray-500 mb-1">Runtime / Platform</p>
+      <p class="text-sm text-gray-200 leading-relaxed">${escapeHtml(item.runtime || item.platform || "Not available")}</p>
     </div>
   `;
 }
@@ -342,17 +349,131 @@ function buildMediaInfoLine(item) {
 function createPosterMarkup(item) {
   if (item.poster) {
     return `
-      <div class="poster-frame">
-        <img src="${escapeHtml(item.poster)}" alt="${escapeHtml(item.title)} poster" class="poster-image" loading="lazy" />
+      <div class="overflow-hidden rounded-xl">
+        <img src="${escapeHtml(item.poster)}" alt="${escapeHtml(item.title)} poster" class="poster-image w-full h-48 object-cover rounded-xl" loading="lazy" />
       </div>
     `;
   }
 
   return `
-    <div class="poster-frame poster-placeholder">
+    <div class="poster-placeholder flex h-48 w-full items-center justify-center rounded-xl">
       <span>${escapeHtml(item.title || "CineMind")}</span>
     </div>
   `;
+}
+
+function createDetailsPosterMarkup(item) {
+  if (item.poster) {
+    return `
+      <div class="details-poster-frame">
+        <img src="${escapeHtml(item.poster)}" alt="${escapeHtml(item.title)} poster" class="details-poster-image" loading="lazy" />
+      </div>
+    `;
+  }
+
+  return `
+    <div class="details-poster-frame poster-placeholder flex items-center justify-center text-center">
+      <span>${escapeHtml(item.title || "CineMind")}</span>
+    </div>
+  `;
+}
+
+function getAllKnownItems() {
+  return [
+    ...state.results,
+    ...state.chatSuggestions,
+    ...state.favorites.movie,
+    ...state.favorites.series,
+    state.discovery.movieOfDay,
+    state.discovery.seriesOfDay,
+    ...state.discovery.trendingMovies,
+    ...state.discovery.trendingSeries,
+  ].filter(Boolean);
+}
+
+function getItemByKey(itemKey) {
+  return getAllKnownItems().find((item) => getItemKey(item) === itemKey) || null;
+}
+
+function createDetailMetric(label, value) {
+  return `
+    <div class="details-grid-card">
+      <p class="text-[0.72rem] uppercase tracking-[0.24em] text-slate-500">${escapeHtml(label)}</p>
+      <p class="mt-2 text-sm leading-relaxed text-slate-200">${escapeHtml(value || "Not available")}</p>
+    </div>
+  `;
+}
+
+function createDetailsModalMarkup(item) {
+  const mediaType = getMediaType(item);
+  const accentTone = mediaType === "series" ? "text-emerald-200" : "text-orange-200";
+  const heroStyle = item.backdrop ? `style="background-image: linear-gradient(180deg, rgba(2, 6, 23, 0.1) 0%, rgba(2, 6, 23, 0.55) 58%, rgba(2, 6, 23, 0.96) 100%), linear-gradient(120deg, rgba(249, 115, 22, 0.16), transparent 36%, rgba(56, 189, 248, 0.14)), url('${escapeHtml(item.backdrop)}');"` : "";
+
+  return `
+    <article class="details-modal-panel">
+      <section class="details-hero" ${heroStyle}>
+        <div class="details-hero-content">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="details-meta-pill ${accentTone}">${escapeHtml(mediaType === "series" ? "Series Spotlight" : "Movie Spotlight")}</span>
+            <span class="details-meta-pill">${escapeHtml(buildMetaLine(item))}</span>
+          </div>
+          <div class="max-w-3xl">
+            <h2 id="detailsModalTitle" class="text-3xl font-bold tracking-tight text-white md:text-5xl">${escapeHtml(item.title || "Unknown title")}</h2>
+            <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-200 md:text-base">${escapeHtml(
+              item.desc || "No description available."
+            )}</p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button class="action-button" data-watch-trailer="${escapeHtml(item.title)}">Watch Trailer</button>
+            <button class="action-button" data-more-like-this="${escapeHtml(item.title)}" data-more-like-type="${mediaType}">More Like This</button>
+            <button class="action-button" data-open-tmdb="${escapeHtml(item.tmdbUrl || "")}">TMDB</button>
+            <button class="action-button ${isFavorite(item) ? "icon-action-active" : ""}" data-toggle-favorite="${getItemKey(item)}">
+              ${isFavorite(item) ? "Saved to My List" : "Save to My List"}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="details-summary-grid">
+        <div>${createDetailsPosterMarkup(item)}</div>
+        <div class="space-y-5">
+          <div class="details-grid-card">
+            <p class="text-[0.72rem] uppercase tracking-[0.24em] ${mediaType === "series" ? "text-emerald-200" : "text-sky-200"}">Why it fits</p>
+            <p class="mt-3 text-sm leading-7 text-slate-200">${escapeHtml(item.reason || "A strong fit for this vibe.")}</p>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
+            ${createDetailMetric(mediaType === "series" ? "Platform" : "Director", mediaType === "series" ? item.platform : item.director)}
+            ${createDetailMetric(mediaType === "series" ? "Status" : "Runtime / Platform", mediaType === "series" ? item.status : item.runtime || item.platform)}
+            ${createDetailMetric("Cast", item.cast?.join(", "))}
+            ${createDetailMetric(mediaType === "series" ? "Episodes" : "Rating", mediaType === "series" ? item.episodes : item.rating)}
+          </div>
+        </div>
+      </section>
+    </article>
+  `;
+}
+
+function openDetailsModal(item) {
+  if (!item || !detailsModal || !detailsModalContent) {
+    return;
+  }
+
+  detailsModalContent.innerHTML = createDetailsModalMarkup(item);
+  detailsModal.classList.remove("hidden");
+  detailsModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+}
+
+function closeDetailsModal() {
+  if (!detailsModal || !detailsModalContent || detailsModal.classList.contains("hidden")) {
+    return;
+  }
+
+  detailsModal.classList.add("hidden");
+  detailsModal.setAttribute("aria-hidden", "true");
+  detailsModalContent.innerHTML = "";
+  document.body.classList.remove("modal-open");
 }
 
 function createMediaCard(item, options = {}) {
@@ -361,41 +482,42 @@ function createMediaCard(item, options = {}) {
   const favoriteActive = isFavorite(item) ? "icon-action-active" : "";
 
   return `
-    <article class="movie-card ${compact} rounded-[1.6rem] border border-white/10 bg-slate-950/35 p-5" data-item-key="${getItemKey(item)}">
+    <article class="movie-card ${compact} h-full min-h-[420px] flex flex-col justify-between glass-panel rounded-2xl p-4 hover-lift border border-white/10 bg-slate-950/35" data-item-key="${getItemKey(item)}">
       ${item.backdrop ? `<div class="backdrop-glow" style="background-image:url('${escapeHtml(item.backdrop)}')"></div>` : ""}
-      <div class="relative z-10 grid gap-4 ${options.compact ? "" : "md:grid-cols-[140px_1fr]"}">
-        ${createPosterMarkup(item)}
-        <div>
+      <div class="relative z-10 flex flex-col h-full justify-between text-left">
+        <div class="space-y-4">
+          ${createPosterMarkup(item)}
           <div class="flex items-start justify-between gap-4">
-            <div>
+            <div class="min-w-0 flex-1">
               <p class="text-xs uppercase tracking-[0.28em] ${tone}">${escapeHtml(buildMetaLine(item))}</p>
-              <h3 class="mt-3 text-2xl font-semibold text-white">${escapeHtml(item.title || "Unknown title")}</h3>
+              <h2 class="line-clamp-2 text-lg font-semibold leading-tight text-white">${escapeHtml(item.title || "Unknown title")}</h2>
             </div>
             <button class="icon-action ${favoriteActive}" data-toggle-favorite="${getItemKey(item)}">
               ${isFavorite(item) ? "Saved" : "Favorite"}
             </button>
           </div>
-
-          <p class="mt-4 text-sm leading-7 text-slate-200">${escapeHtml(item.desc || "No description available.")}</p>
-          <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-            <p class="text-xs uppercase tracking-[0.22em] ${getMediaType(item) === "series" ? "text-emerald-200" : "text-sky-200"}">Why it fits</p>
-            <p class="mt-2 text-sm text-slate-200">${escapeHtml(item.reason || "A strong fit for this vibe.")}</p>
+          <p class="line-clamp-3 text-sm text-gray-400 leading-relaxed">${escapeHtml(item.desc || "No description available.")}</p>
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2 mt-3 text-left">
+            <p class="text-xs uppercase tracking-wider ${getMediaType(item) === "series" ? "text-emerald-200" : "text-sky-200"}">Why it fits</p>
+            <p class="text-sm leading-relaxed text-gray-300">${escapeHtml(item.reason || "A strong fit for this vibe.")}</p>
           </div>
+        </div>
 
-          <div class="mt-4 grid gap-3 sm:grid-cols-2">
+        <div class="space-y-4 mt-4">
+          <div class="grid gap-3 sm:grid-cols-2">
             ${buildMediaInfoLine(item)}
           </div>
 
-          <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-            <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Cast</p>
-            <p class="mt-2 text-sm text-white">${escapeHtml(item.cast?.join(", ") || "Not available")}</p>
+          <div class="p-3 rounded-xl border border-white/10 bg-white/5 text-left mt-3">
+            <p class="text-xs uppercase tracking-wider text-gray-500 mb-1">Cast</p>
+            <p class="text-sm text-gray-200 leading-relaxed">${escapeHtml(item.cast?.join(", ") || "Not available")}</p>
           </div>
 
-          <div class="mt-4 grid gap-2 sm:grid-cols-4">
-            <button class="action-button" data-more-like-this="${escapeHtml(item.title)}" data-more-like-type="${getMediaType(item)}">More Like This</button>
-            <button class="action-button" data-watch-trailer="${escapeHtml(item.title)}">Watch Trailer</button>
-            <button class="action-button" data-open-tmdb="${escapeHtml(item.tmdbUrl || "")}">TMDB</button>
-            <button class="action-button" data-make-active="${getItemKey(item)}">Focus Card</button>
+          <div class="flex flex-wrap gap-2 mt-3">
+            <button class="action-button text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition" data-more-like-this="${escapeHtml(item.title)}" data-more-like-type="${getMediaType(item)}">More Like This</button>
+            <button class="action-button text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition" data-watch-trailer="${escapeHtml(item.title)}">Watch Trailer</button>
+            <button class="action-button text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition" data-open-tmdb="${escapeHtml(item.tmdbUrl || "")}">TMDB</button>
+            <button class="action-button text-xs px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 transition" data-view-details="${getItemKey(item)}">View Details</button>
           </div>
         </div>
       </div>
@@ -641,13 +763,7 @@ function syncModeTabs() {
 }
 
 function getDiscoveryItemByKey(itemKey) {
-  const allDiscoveryItems = [
-    state.discovery.movieOfDay,
-    state.discovery.seriesOfDay,
-    ...state.discovery.trendingMovies,
-    ...state.discovery.trendingSeries,
-  ].filter(Boolean);
-
+  const allDiscoveryItems = [state.discovery.movieOfDay, state.discovery.seriesOfDay, ...state.discovery.trendingMovies, ...state.discovery.trendingSeries].filter(Boolean);
   return allDiscoveryItems.find((item) => getItemKey(item) === itemKey) || null;
 }
 
@@ -752,6 +868,12 @@ function bindGlobalEvents() {
   });
 
   document.addEventListener("click", (event) => {
+    const closeModalTrigger = event.target.closest("[data-close-details-modal]");
+    if (closeModalTrigger) {
+      closeDetailsModal();
+      return;
+    }
+
     const recentButton = event.target.closest("[data-recent-search]");
     if (recentButton) {
       const [mediaType, mood] = recentButton.dataset.recentSearch.split("::");
@@ -824,10 +946,12 @@ function bindGlobalEvents() {
       return;
     }
 
-    const activeButton = event.target.closest("[data-make-active]");
-    if (activeButton) {
-      state.activeItemKey = activeButton.dataset.makeActive;
-      showToast("Active card updated for keyboard favorite toggle.", "info");
+    const detailsButton = event.target.closest("[data-view-details]");
+    if (detailsButton) {
+      const item = getItemByKey(detailsButton.dataset.viewDetails);
+      if (item) {
+        openDetailsModal(item);
+      }
       return;
     }
 
@@ -859,6 +983,11 @@ function bindGlobalEvents() {
     }
 
     if (event.key === "Escape") {
+      if (!detailsModal.classList.contains("hidden")) {
+        closeDetailsModal();
+        return;
+      }
+
       resetView();
       return;
     }

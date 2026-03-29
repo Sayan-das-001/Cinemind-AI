@@ -4,12 +4,18 @@
 
 ### AI-powered movie & web series recommendation platform
 
+*Discover what to watch next with mood-aware AI, real TMDB metadata, and a cinematic browsing experience.*
+
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20App-orange?style=for-the-badge&logo=render)](https://cinemind-ai-kk34.onrender.com/)
 
-[![Gemini AI](https://img.shields.io/badge/Gemini%20AI-Powered-4285F4?style=for-the-badge&logo=google)](https://console.cloud.google.com/apis/credentials)
+[![OpenRouter](https://img.shields.io/badge/OpenRouter-AI-orange?style=for-the-badge)](https://openrouter.ai/)
 [![TMDB API](https://img.shields.io/badge/TMDB-Real%20Data-01D277?style=for-the-badge&logo=themoviedatabase)](https://developer.themoviedb.org/reference/getting-started)
 [![Node.js](https://img.shields.io/badge/Node.js-Backend-339933?style=for-the-badge&logo=node.js)](https://nodejs.org/en/download)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-UI-06B6D4?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/docs/installation/using-vite)
+
+<br />
+
+<img src="screenshots/demo.gif" alt="CineMind AI demo" width="100%" />
 
 </div>
 
@@ -18,58 +24,68 @@
 ## ✨ Features
 
 ### 🎯 AI Features
-- 🤖 Generates personalized movie recommendations based on mood and intent
-- 🧠 Supports web series recommendations alongside movies
-- 💬 Includes an AI chat assistant for natural-language entertainment discovery
-- 🔁 Retries and validates AI JSON responses for stable structured output
-- 🎯 Uses personalization context from favorites and recent searches
+- 🤖 Generates personalized recommendations from moods, intent, and conversational cues
+- 🧠 Supports both movie and web series discovery in a single flow
+- 💬 Includes an AI chat assistant for natural-language entertainment search
+- 🔁 Retries and validates AI responses for stable structured output
+- 🎯 Uses favorites and recent searches to personalize recommendations
+- Powered by OpenRouter with the `google/gemini-3-flash-preview` model
+- Uses structured prompting and normalized JSON parsing for reliable downstream rendering
 
 ### 🎬 Movies & 📺 Web Series
-- 🎞️ Toggle between **Movies** and **Web Series** modes
-- 🧾 Returns multiple recommendations in a rich card layout
-- 🧠 “More Like This” suggestions for similar content
-- 🎥 Trailer quick-access via YouTube search
-- 🖼️ Poster-rich result cards with visual detail panels
+- 🎞️ Lets users switch seamlessly between **Movies** and **Web Series**
+- 🧾 Returns multiple recommendations in a rich, card-based layout
+- 🧠 Supports “More Like This” discovery for similar titles
+- 🎥 Provides one-click trailer search via YouTube
+- 🖼️ Displays poster-rich result cards with cinematic **View Details** modal previews
 
 ### 🌐 Real Data Integration
 - 🍿 Integrates **TMDB API** for posters, backdrops, ratings, and metadata
-- ⭐ Enriches AI recommendations with real-world title details
-- 🔗 Links directly to TMDB pages for deeper exploration
-- 🖼️ Uses TMDB image assets for premium visual presentation
+- ⭐ Enriches AI-generated recommendations with real title information
+- 🔗 Links directly to TMDB for deeper exploration
+- 🖼️ Uses TMDB image assets to elevate visual presentation
 
 ### ❤️ User Features
-- 💾 Save favorites in local storage
-- 📂 Separate favorite lists for **Movies** and **Series**
-- 🧹 Prevents duplicate saved items
-- 📤 Export favorites as JSON
-- 🏷️ Includes favorites counter badges and quick remove actions
+- 💾 Saves favorites in local storage for persistent access
+- 📂 Maintains separate saved lists for **Movies** and **Series**
+- 🧹 Prevents duplicate favorites automatically
+- 📤 Exports favorites as JSON
+- 🏷️ Includes counters, quick remove actions, and toggleable list panels
 
 ### 🔍 Discovery
-- 🔥 Trending Movies section
-- 📺 Trending Series section
-- 🌟 Movie of the Day
-- 🌟 Series of the Day
-- 🕘 Recent search history with one-click reuse
+- 🔥 Highlights Trending Movies
+- 📺 Highlights Trending Series
+- 🌟 Surfaces a Movie of the Day
+- 🌟 Surfaces a Series of the Day
+- 🕘 Stores recent searches for one-click reuse
 
 ### 💬 AI Chat Mode
-- 🗨️ Conversational recommendation assistant
+- 🗨️ Supports conversational recommendation discovery
 - 🎯 Understands prompts like: *“Suggest something like Interstellar but happier”*
-- 🧠 Maintains short conversation context
-- 🎬 Returns suggested titles directly inside the chat experience
+- 🧠 Maintains short-term context across the conversation
+- 🎬 Returns suggested titles as interactive recommendation cards
 
 ### ⚡ Power Features
-- 🎲 Surprise Me mood randomizer
-- ⌨️ Keyboard shortcuts for fast interaction
-- 🔄 Retry logic for failed API calls
-- 🛡️ Graceful error handling with fallback UI
-- 🚀 Fast full-stack flow powered by Node.js + Express
+- 🎲 Includes a Surprise Me mood randomizer
+- ⌨️ Supports keyboard shortcuts for faster interaction
+- 🔄 Uses retry logic for resilient API communication
+- 🛡️ Handles failures gracefully with fallback UI states
+- 🚀 Runs on a lightweight Node.js + Express full-stack architecture
 
 ### 🎨 UI/UX
-- ✨ Glassmorphism-inspired interface
-- 📱 Responsive layout for desktop and mobile
-- 🧊 Skeleton loading states
-- 🔔 Toast notifications
-- 🎯 Smooth hover transitions and polished card animations
+- ✨ Uses a glassmorphism-inspired visual system
+- 📱 Stays responsive across desktop and mobile layouts
+- 🧊 Includes skeleton loading states for better perceived performance
+- 🔔 Provides toast notifications for key user actions
+- 🎯 Delivers smooth hover states, card motion, and premium modal interactions
+
+---
+
+## 🚀 Why This Project
+
+CineMind AI solves a common discovery problem: most movie apps are great at listing content, but weak at understanding *intent*. Users usually know the vibe they want, not the exact title.
+
+This project stands out by combining mood-based AI recommendations, conversational discovery, and real TMDB enrichment in one polished product experience. Instead of browsing static catalogs, users can describe how they feel and get context-aware, visually rich recommendations instantly.
 
 ---
 
@@ -79,13 +95,24 @@
 flowchart LR
     A[User] --> B[Frontend]
     B --> C[Backend]
-    C --> D[Gemini API]
+    C --> D[OpenRouter API]
     C --> E[TMDB API]
     D --> C
     E --> C
     C --> B
     B --> F[UI]
 ```
+
+---
+
+## 💬 Try These Prompts
+
+- "A mind-bending sci-fi like Interstellar but happier"
+- "Dark thriller with plot twist"
+- "Feel good movie for a rainy evening"
+- "Weekend binge-worthy mystery series"
+- "Romantic movie with cozy late-night vibes"
+- "Action movie that feels intense but not too dark"
 
 ---
 
@@ -106,9 +133,8 @@ npm install
 Create a `.env` file in the project root and add:
 
 ```env
-GEMINI_API_KEY=your_gemini_api_key
+OPENROUTER_API_KEY=your_openrouter_api_key
 TMDB_API_KEY=your_tmdb_api_key
-GEMINI_MODEL=gemini-3-flash-preview
 ```
 
 ### 4. Start the server
@@ -132,7 +158,7 @@ Anyone can download and run CineMind AI locally by following these steps:
 1. Download or clone the repository.
 2. Install Node.js if it is not already installed.
 3. Run `npm install` in the project folder.
-4. Create a `.env` file with valid Gemini and TMDB API keys.
+4. Create a `.env` file with valid OpenRouter and TMDB API keys.
 5. Start the app using `npm start`.
 6. Open `http://localhost:3000` in the browser.
 
@@ -145,7 +171,7 @@ Anyone can download and run CineMind AI locally by following these steps:
 | `/` | Focus search input |
 | `R` | Pick a random mood and fetch recommendations |
 | `Esc` | Reset current view |
-| `F` | Toggle favorite for the active item |
+| `F` | Toggle favorite for the current primary suggestion |
 
 ---
 
@@ -161,8 +187,8 @@ Anyone can download and run CineMind AI locally by following these steps:
 - Express.js
 
 ### AI
-- Google Gemini API
-- `@google/generative-ai`
+- OpenRouter API (Gemini 3 Flash Preview)
+- Unified LLM access via OpenRouter
 
 ### APIs
 - TMDB API
@@ -170,23 +196,31 @@ Anyone can download and run CineMind AI locally by following these steps:
 
 ---
 
-## 📸 Screenshots
+---
 
-Screenshots can be added here later to showcase:
-- Home page
-- Recommendation results
-- AI chat interface
-- Favorites and discovery sections
+## 🏗️ Architecture Decisions
+
+- **Why OpenRouter:** It provides flexible access to powerful LLMs behind a single integration layer, making the app easier to maintain and upgrade.
+- **Why structured JSON prompting:** Recommendation cards, chat suggestions, and discovery sections all depend on predictable object shapes, so structured output reduces parsing issues and UI breakage.
+- **Why TMDB integration:** AI is strong at taste and intent, while TMDB provides trusted metadata, posters, ratings, and backdrops that make the product feel real and complete.
 
 ---
 
 ## 💼 Project Highlights
 
-- Built a full-stack AI recommendation platform using the Gemini API for mood-based and conversational entertainment discovery.
-- Integrated TMDB API for real-time posters, ratings, metadata, and visual enrichment of recommendations.
-- Designed a responsive, premium UI with Tailwind CSS, glassmorphism styling, animations, and skeleton loaders.
-- Implemented a favorites system with separate movie and series lists, export support, and persistent local storage.
-- Developed a scalable Node.js + Express backend with structured JSON prompting, error handling, retry logic, and multi-source API orchestration.
+- Built a full-stack AI recommendation platform that translates user mood and intent into actionable movie and web series suggestions.
+- Engineered an OpenRouter-powered recommendation pipeline with structured JSON normalization for dependable UI rendering.
+- Integrated TMDB enrichment to combine generative recommendations with real posters, backdrops, ratings, and title metadata.
+- Designed and shipped a responsive glassmorphism interface with cinematic detail modals, discovery modules, and polished motion states.
+- Implemented persistent favorites, recent-search memory, export support, and conversational recommendation flows to strengthen user retention and usability.
+
+---
+
+## ⚠️ Limitations
+
+- AI recommendations can vary between requests because generative outputs are probabilistic.
+- The app depends on valid OpenRouter and TMDB API keys to function fully.
+- Free-tier or rate-limited API usage may affect response speed, reliability, or availability.
 
 ---
 
@@ -203,6 +237,14 @@ Screenshots can be added here later to showcase:
 
 ---
 
+## 🚀 Deployment
+
+CineMind AI is hosted on **Render** for simple full-stack deployment and live sharing.
+
+Live app: [https://cinemind-ai-kk34.onrender.com/](https://cinemind-ai-kk34.onrender.com/)
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome.
@@ -212,6 +254,15 @@ Contributions are welcome.
 3. Commit your changes
 4. Push your branch
 5. Open a pull request
+
+---
+
+## 👨‍💻 Author
+
+**Sayan Das**
+
+- GitHub: [Sayan-das-001](https://github.com/Sayan-das-001)
+- LinkedIn: [sayan-das-05a255316](https://www.linkedin.com/in/sayan-das-05a255316/)
 
 ---
 

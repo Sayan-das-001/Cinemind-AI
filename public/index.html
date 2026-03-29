@@ -31,6 +31,27 @@
   </head>
   <body class="min-h-screen bg-midnight text-white">
     <div id="toastContainer" class="pointer-events-none fixed right-4 top-4 z-50 flex w-full max-w-sm flex-col gap-3"></div>
+    <div
+      id="detailsModal"
+      class="details-modal hidden"
+      aria-hidden="true"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="detailsModalTitle"
+    >
+      <div class="details-modal-backdrop" data-close-details-modal></div>
+      <div class="details-modal-shell">
+        <button
+          type="button"
+          class="details-close-button"
+          aria-label="Close details"
+          data-close-details-modal
+        >
+          ×
+        </button>
+        <div id="detailsModalContent"></div>
+      </div>
+    </div>
 
     <main class="relative overflow-hidden px-4 py-8 md:px-6">
       <div class="background-orb background-orb-one"></div>
@@ -178,7 +199,7 @@
                 Pick Movies or Web Series, then search by mood, genre, Surprise Me, or jump into chat mode.
               </div>
 
-              <div id="resultsGrid" class="mt-6 hidden grid gap-4 md:grid-cols-2"></div>
+              <div id="resultsGrid" class="mt-6 hidden grid grid-cols-1 gap-6 items-stretch md:grid-cols-2 xl:grid-cols-3"></div>
             </section>
 
             <section class="glass-panel rounded-[2rem] border border-white/10 p-6 backdrop-blur-xl">
