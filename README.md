@@ -164,7 +164,7 @@ Anyone can download and run CineMind AI locally by following these steps:
 
 ---
 
-## ⌨️ Keyboard Shortcuts
+## ⌨️ Keyboard Shortcuts (IOS)
 
 | Shortcut | Action |
 |---|---|
